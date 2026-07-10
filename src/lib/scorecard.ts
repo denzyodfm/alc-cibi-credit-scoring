@@ -1,0 +1,177 @@
+import { NaTreatment, Prisma, ScorecardResult } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+
+export type ScorecardInputItem = {
+  code: string;
+  score: number;
+  isNa?: boolean;
+  remarks?: string;
+};
+
+export type ComputedItem = {
+  category: string;
+  subCriterionCode: string;
+  subCriterionName: string;
+  score: number;
+  isNa: boolean;
+  naTreatment: NaTreatment;
+  weightedIncluded: boolean;
+  autoDqIfZero: boolean;
+  remarks?: string;
+};
+
+export type ScoreComputation = {
+  itemRows: ComputedItem[];
+  categoryScores: Record<string, number>;
+  overallScore: number;
+  result: ScorecardResult;
+  autoDqTriggered: boolean;
+  autoDqReason: string | null;
+};
+
+function fixedScoreFor(treatment: NaTreatment) {
+  if (treatment === "ASSIGN_FIXED_1") return 1;
+  if (treatment === "ASSIGN_FIXED_2" || treatment === "ASSIGN_NEUTRAL_2") return 2;
+  if (treatment === "ASSIGN_FIXED_4") return 4;
+  return null;
+}
+
+export function dtiScore(grossIncome: number, monthlyObligations: number, proposedAmortization: number) {
+  if (grossIncome <= 0) return null;
+  const dti = ((monthlyObligations + proposedAmortization) / grossIncome) * 100;
+  if (dti <= 50) return 4;
+  if (dti <= 60) return 3;
+  if (dti <= 70) return 2;
+  if (dti <= 80) return 1;
+  return 0;
+}
+
+export function ltvScore(loanAmount: number, appraisedValue: number) {
+  if (loanAmount <= 0 || appraisedValue <= 0) return null;
+  const ltv = (loanAmount / appraisedValue) * 100;
+  if (ltv <= 60) return 4;
+  if (ltv <= 70) return 3;
+  if (ltv <= 80) return 2;
+  if (ltv <= 90) return 1;
+  return 0;
+}
+
+export async function getScorecardRules() {
+  const [criteria, settings] = await Promise.all([
+    prisma.scorecardCriterion.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.scorecardSetting.findMany({ where: { isActive: true } })
+  ]);
+  return { criteria, settings };
+}
+
+export async function computeScorecard(inputItems: ScorecardInputItem[]): Promise<ScoreComputation> {
+  const { criteria, settings } = await getScorecardRules();
+  const weightByCategory = new Map(settings.map((item) => [item.category, Number(item.weightPercent)]));
+  const inputByCode = new Map(inputItems.map((item) => [item.code, item]));
+  const itemRows: ComputedItem[] = [];
+  const autoDqReasons: string[] = [];
+
+  for (const criterion of criteria) {
+    const submitted = inputByCode.get(criterion.code);
+    const wantsNa = Boolean(submitted?.isNa);
+    let score = Math.max(0, Math.min(4, Number(submitted?.score ?? 2)));
+    let weightedIncluded = true;
+    let isNa = false;
+
+    if (wantsNa && criterion.naTreatment !== "NEVER_NA") {
+      isNa = true;
+      const fixed = fixedScoreFor(criterion.naTreatment);
+      if (fixed === null || criterion.naTreatment === "EXCLUDE_RENORMALIZE") {
+        weightedIncluded = false;
+        score = 0;
+      } else {
+        score = fixed;
+      }
+    }
+
+    if (criterion.autoDqIfZero && score === 0 && weightedIncluded) {
+      autoDqReasons.push(`${criterion.code} ${criterion.name} scored 0: ${(criterion.scoreDescriptions as Record<string, string>)["0"]}`);
+    }
+
+    itemRows.push({
+      category: criterion.category,
+      subCriterionCode: criterion.code,
+      subCriterionName: criterion.name,
+      score,
+      isNa,
+      naTreatment: criterion.naTreatment,
+      weightedIncluded,
+      autoDqIfZero: criterion.autoDqIfZero,
+      remarks: submitted?.remarks
+    });
+  }
+
+  const categoryScores: Record<string, number> = {};
+  for (const category of weightByCategory.keys()) {
+    const included = itemRows.filter((item) => item.category === category && item.weightedIncluded);
+    const max = included.length * 4;
+    const actual = included.reduce((sum, item) => sum + item.score, 0);
+    const normalized = max > 0 ? actual / max : 0;
+    categoryScores[category] = Number((normalized * (weightByCategory.get(category) ?? 0)).toFixed(2));
+  }
+
+  const overallScore = Number(Object.values(categoryScores).reduce((sum, value) => sum + value, 0).toFixed(2));
+  const autoDqTriggered = autoDqReasons.length > 0;
+  let result: ScorecardResult = "DENIED";
+  if (autoDqTriggered) result = "AUTO_DENIED";
+  else if (overallScore >= 80) result = "PROCEED";
+  else if (overallScore >= 65) result = "FOR_CREDIT_COMMITTEE";
+
+  return {
+    itemRows,
+    categoryScores,
+    overallScore,
+    result,
+    autoDqTriggered,
+    autoDqReason: autoDqReasons.length ? autoDqReasons.join("\n") : null
+  };
+}
+
+export async function routeToCreditCommittee(loanApplicationId: number, actorId: number) {
+  const loan = await prisma.loanApplication.findUniqueOrThrow({
+    where: { id: loanApplicationId },
+    include: { branch: true }
+  });
+  const amount = Number(loan.amountApplied);
+  const committee = await prisma.creditCommittee.findFirst({
+    where: {
+      status: "ACTIVE",
+      minLoanAmount: { lte: new Prisma.Decimal(amount) },
+      AND: [
+        { OR: [{ maxLoanAmount: null }, { maxLoanAmount: { gte: new Prisma.Decimal(amount) } }] },
+        { OR: [{ isHeadOfficeCommittee: true }, { branchId: loan.branchId }] }
+      ]
+    },
+    include: { members: { where: { isRequired: true }, orderBy: { approvalSequence: "asc" } } },
+    orderBy: [{ isHeadOfficeCommittee: "asc" }, { minLoanAmount: "desc" }]
+  });
+
+  if (!committee) return null;
+
+  for (const member of committee.members) {
+    const exists = await prisma.creditCommitteeReview.findFirst({
+      where: { loanApplicationId, creditCommitteeId: committee.id, reviewerId: member.userId }
+    });
+    if (!exists) {
+      await prisma.creditCommitteeReview.create({
+        data: { loanApplicationId, creditCommitteeId: committee.id, reviewerId: member.userId, decision: "PENDING" }
+      });
+    }
+  }
+
+  await prisma.auditLog.create({
+    data: {
+      userId: actorId,
+      action: "Submit for review",
+      entityType: "LoanApplication",
+      entityId: String(loanApplicationId),
+      newValue: { creditCommitteeId: committee.id, committeeName: committee.committeeName }
+    }
+  });
+  return committee;
+}
