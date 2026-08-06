@@ -98,6 +98,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const householdData = cleanObject(body.household);
   const incomeData = cleanObject(body.income);
 
+  const dateOfCi = parseDate(loanData.dateOfCi);
+  if (!dateOfCi) return NextResponse.json({ error: "Invalid CI date" }, { status: 400 });
+
   if (applicantData.contactNumber && !PH_MOBILE_PATTERN.test(String(applicantData.contactNumber))) {
     return NextResponse.json({ error: "Contact number must be a valid Philippine mobile number (11 digits starting with 09)" }, { status: 400 });
   }
@@ -171,6 +174,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       where: { id },
       data: {
         ciFormNo: loanData.ciFormNo as string | null,
+        dateOfCi,
         loanProduct: loanData.loanProduct as string | null,
         loanPurpose: loanData.loanPurpose as string | null,
         desiredTerms: loanData.desiredTerms as string | null,

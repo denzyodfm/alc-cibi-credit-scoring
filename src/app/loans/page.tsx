@@ -65,6 +65,7 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
             <tr>
               <th className="px-4 py-3">Application</th>
               <th className="px-4 py-3">Applicant</th>
+              <th className="px-4 py-3">CI Date</th>
               <th className="px-4 py-3">Branch</th>
               <th className="px-4 py-3">Officer</th>
               <th className="px-4 py-3">Score</th>
@@ -80,6 +81,7 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
                   <div className="text-xs text-slate-500">{loan.ciFormNo ?? "No CI form no."}</div>
                 </td>
                 <td className="px-4 py-3">{loan.applicantProfile?.fullName ?? "Incomplete profile"}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{loan.dateOfCi ? loan.dateOfCi.toLocaleDateString("en-CA") : "-"}</td>
                 <td className="px-4 py-3">{loan.branch.branchCode}</td>
                 <td className="px-4 py-3">{loan.loanOfficer.fullName}</td>
                 <td className="px-4 py-3">{loan.scorecard ? `${Number(loan.scorecard.overallScore).toFixed(2)}%` : "-"}</td>

@@ -20,6 +20,10 @@ export function LoanCreateForm({
   const [open, setOpen] = useState(false);
   const isAccountOfficer = currentUser.role === "ACCOUNT_OFFICER";
   const [selectedOfficerId, setSelectedOfficerId] = useState(() => (isAccountOfficer ? String(currentUser.id) : String(officers[0]?.id ?? "")));
+  const [ciDate, setCiDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
 
   const selectedOfficerBranch = useMemo(() => {
     if (isAccountOfficer) return `${currentUser.branchCode} / ${currentUser.branchName}`;
@@ -58,6 +62,10 @@ export function LoanCreateForm({
         ))}
       </select>
       <input className="input" name="amountApplied" type="number" min="0" step="0.01" placeholder="Amount applied" required />
+      <label>
+        <span className="label">CI date</span>
+        <input className="input mt-1" name="ciDate" type="date" value={ciDate} onChange={(event) => setCiDate(event.target.value)} required />
+      </label>
       {isAccountOfficer ? (
         <>
           <input type="hidden" name="loanOfficerId" value={currentUser.id} />

@@ -8,6 +8,7 @@ const schema = z.object({
   applicantName: z.string().min(1),
   loanProduct: z.string().min(1),
   amountApplied: z.coerce.number().nonnegative(),
+  ciDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   loanOfficerId: z.coerce.number(),
   loanPurpose: z.string().optional()
 });
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     data: {
       applicationNo,
       ciFormNo: `CI-${branch.branchCode}-${String(sequence + 1).padStart(5, "0")}`,
-      dateOfCi: new Date(),
+      dateOfCi: new Date(`${parsed.ciDate}T00:00:00`),
       loanOfficerId: officer.id,
       branchId,
       branchCode: branch.branchCode,

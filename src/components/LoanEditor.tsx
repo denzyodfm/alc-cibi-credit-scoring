@@ -619,6 +619,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
     const payload = {
       loan: {
         ciFormNo: form.get("ciFormNo"),
+        dateOfCi: form.get("dateOfCi"),
         loanProduct: form.get("loanProduct"),
         loanPurpose: form.get("loanPurpose"),
         amountApplied: form.get("amountApplied"),
@@ -744,6 +745,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
         <div className={tab === "Loan" ? undefined : "hidden"}>
           <Grid>
             <Field name="ciFormNo" label="CI form no." defaultValue={loan.ciFormNo} />
+            <Field name="dateOfCi" label="CI date" type="date" defaultValue={loan.dateOfCi ? String(loan.dateOfCi).slice(0, 10) : ""} />
             <div>
               <span className="label">Loan officer</span>
               {isAccountOfficer ? (
