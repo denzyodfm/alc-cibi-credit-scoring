@@ -50,7 +50,8 @@ export default async function DashboardPage() {
       </div>
       <section className="panel mt-5 overflow-hidden">
         <div className="border-b border-slate-200 px-4 py-3 font-semibold">Recent applications</div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="table-head">
             <tr>
               <th className="px-4 py-3">Application</th>
@@ -74,6 +75,7 @@ export default async function DashboardPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </AppShell>
   );

@@ -15,7 +15,8 @@ const schema = z.object({
 export async function POST(request: Request) {
   const user = await requireUser();
   const parsed = schema.parse(await request.json());
-  const officer = await prisma.user.findUniqueOrThrow({ where: { id: parsed.loanOfficerId }, include: { branch: true } });
+  const loanOfficerId = user.role === "ACCOUNT_OFFICER" ? user.id : parsed.loanOfficerId;
+  const officer = await prisma.user.findUniqueOrThrow({ where: { id: loanOfficerId }, include: { branch: true } });
   const branchId = canAccessAllBranches(user) ? officer.branchId : user.branchId;
   if (!canAccessAllBranches(user) && officer.branchId !== user.branchId) {
     return NextResponse.json({ error: "Cannot assign another branch officer" }, { status: 403 });

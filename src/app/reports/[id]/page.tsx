@@ -71,7 +71,8 @@ export default async function PrintableReportPage({ params }: { params: Promise<
           <Info label="Recommendation" value={loan.scorecard?.result} />
           <Info label="Auto-DQ reason" value={loan.scorecard?.autoDqReason} wide />
         </Section>
-        <table className="mt-4 w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="mt-4 w-full min-w-[560px] text-sm">
           <thead className="table-head"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Criterion</th><th className="px-3 py-2">Score</th><th className="px-3 py-2">N/A</th><th className="px-3 py-2">Remarks</th></tr></thead>
           <tbody>
             {loan.scorecard?.items.map((item) => (
@@ -85,6 +86,7 @@ export default async function PrintableReportPage({ params }: { params: Promise<
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </AppShell>
   );

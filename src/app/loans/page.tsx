@@ -32,14 +32,22 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
     orderBy: { createdAt: "desc" }
   });
   const officers = await prisma.user.findMany({
-    where: canAccessAllBranches(user) ? { role: "ACCOUNT_OFFICER" } : { role: "ACCOUNT_OFFICER", branchId: user.branchId },
+    where: canAccessAllBranches(user)
+      ? { role: "ACCOUNT_OFFICER", status: "ACTIVE" }
+      : { role: "ACCOUNT_OFFICER", status: "ACTIVE", branchId: user.branchId },
+    include: { branch: true },
     orderBy: { fullName: "asc" }
   });
+  const loanProducts = await prisma.loanProduct.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
 
   return (
     <AppShell user={user}>
       <PageHeader title="Loan Applications" description="Encode CI/BI transactions and keep them branch-tagged." />
-      <LoanCreateForm officers={officers.map((o) => ({ id: o.id, fullName: o.fullName }))} />
+      <LoanCreateForm
+        officers={officers.map((o) => ({ id: o.id, fullName: o.fullName, branchCode: o.branch.branchCode, branchName: o.branch.branchName }))}
+        loanProducts={loanProducts.map((p) => p.name)}
+        currentUser={{ id: user.id, fullName: user.fullName, role: user.role, branchCode: user.branchCode, branchName: user.branchName }}
+      />
       <form className="mt-5 grid gap-3 md:grid-cols-[1fr_220px_120px]">
         <input className="input" name="q" placeholder="Search applicant, application no., CI form no., branch" defaultValue={q} />
         <select className="input" name="status" defaultValue={status}>
@@ -51,7 +59,8 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
         <button className="btn-secondary">Filter</button>
       </form>
       <section className="panel mt-5 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="table-head">
             <tr>
               <th className="px-4 py-3">Application</th>
@@ -80,6 +89,7 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </AppShell>
   );

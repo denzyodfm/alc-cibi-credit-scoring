@@ -31,7 +31,11 @@ body {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 md:gap-2.5 md:rounded-lg md:px-4 md:py-2.5 md:text-base lg:px-5 lg:py-3;
+  }
+
+  .btn svg {
+    @apply h-4 w-4 shrink-0 md:h-[18px] md:w-[18px] lg:h-5 lg:w-5;
   }
 
   .btn-primary {

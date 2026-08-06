@@ -16,7 +16,8 @@ export default async function UsersPage() {
       <PageHeader title="User Management" description="Role-based access, branch assignment, and activation status." />
       {canManageSetup(user) ? <UserForm branches={branches.map((b) => ({ id: b.id, branchName: b.branchName, branchCode: b.branchCode }))} /> : null}
       <section className="panel mt-5 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="table-head">
             <tr>
               <th className="px-4 py-3">Employee</th>
@@ -44,6 +45,7 @@ export default async function UsersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </AppShell>
   );

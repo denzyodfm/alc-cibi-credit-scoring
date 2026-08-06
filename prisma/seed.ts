@@ -1,5 +1,7 @@
 import { PrismaClient, NaTreatment, UserRole, StaffRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import fs from "fs";
+import path from "path";
 
 const prisma = new PrismaClient();
 
@@ -351,6 +353,12 @@ const criteria = [
   }
 ];
 
+const loanProducts = ["Salary Loan", "Pension Loan", "Chattel Loan", "Real Estate Loan", "Business Loan", "Bonus Loan"];
+const loanTermMonths = [3, 6, 9, 12, 18, 24, 30, 36, 48, 60];
+const sexOptions = ["Male", "Female"];
+const civilStatusOptions = ["Single", "Married", "Separated", "Widow", "Live-in"];
+const residenceTypeOptions = ["Owned", "Living with Relatives", "Company Provided", "Renting", "Mortgaged"];
+
 async function main() {
   for (const [branchCode, branchName, branchAddress, isHeadOffice] of branches) {
     await prisma.branch.upsert({
@@ -479,6 +487,55 @@ async function main() {
     ],
     skipDuplicates: true
   });
+
+  for (const [index, name] of loanProducts.entries()) {
+    await prisma.loanProduct.upsert({
+      where: { name },
+      update: { sortOrder: index, isActive: true },
+      create: { name, sortOrder: index }
+    });
+  }
+
+  for (const [index, months] of loanTermMonths.entries()) {
+    await prisma.loanTermOption.upsert({
+      where: { months },
+      update: { sortOrder: index, isActive: true },
+      create: { months, sortOrder: index }
+    });
+  }
+
+  for (const [index, label] of sexOptions.entries()) {
+    await prisma.sexOption.upsert({
+      where: { label },
+      update: { sortOrder: index, isActive: true },
+      create: { label, sortOrder: index }
+    });
+  }
+
+  for (const [index, label] of civilStatusOptions.entries()) {
+    await prisma.civilStatusOption.upsert({
+      where: { label },
+      update: { sortOrder: index, isActive: true },
+      create: { label, sortOrder: index }
+    });
+  }
+
+  for (const [index, label] of residenceTypeOptions.entries()) {
+    await prisma.residenceTypeOption.upsert({
+      where: { label },
+      update: { sortOrder: index, isActive: true },
+      create: { label, sortOrder: index }
+    });
+  }
+
+  const locationsPath = path.join(__dirname, "data", "caraga-locations.json");
+  if (fs.existsSync(locationsPath)) {
+    const locations = JSON.parse(fs.readFileSync(locationsPath, "utf8")) as { region: string; province: string; cityMunicipality: string; barangay: string }[];
+    const existingCount = await prisma.addressBarangay.count();
+    if (existingCount === 0) {
+      await prisma.addressBarangay.createMany({ data: locations, skipDuplicates: true });
+    }
+  }
 }
 
 main()
