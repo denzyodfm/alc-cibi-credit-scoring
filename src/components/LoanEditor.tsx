@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ApplicantPhotoCard } from "@/components/ApplicantPhotoCard";
 import {
   Calculator,
   Printer,
@@ -750,8 +749,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
       {message ? <div className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">{message}</div> : null}
       <section className="panel p-4">
         <div className={tab === "Loan" ? undefined : "hidden"}>
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
-            <Grid>
+          <Grid>
               <Field name="ciFormNo" label="CI form no." defaultValue={loan.ciFormNo} />
               <Field name="dateOfCi" label="CI date" type="date" defaultValue={loan.dateOfCi ? String(loan.dateOfCi).slice(0, 10) : ""} />
               <div className="md:max-w-64">
@@ -779,11 +777,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
               <Select name="desiredTerms" label="Desired terms" defaultValue={loan.desiredTerms} options={termOptions} />
               <Field name="proposedAmortization" label="Proposed amortization" money defaultValue={loan.proposedAmortization} />
               <TextArea name="loanPurpose" label="Loan purpose" defaultValue={loan.loanPurpose} />
-            </Grid>
-            <div className="justify-self-end">
-              <ApplicantPhotoCard loanId={loan.id} initialPhoto={loan.applicantProfile?.photoDataUrl} />
-            </div>
-          </div>
+          </Grid>
         </div>
         <div className={tab === "Applicant" ? undefined : "hidden"}>
           <Grid>

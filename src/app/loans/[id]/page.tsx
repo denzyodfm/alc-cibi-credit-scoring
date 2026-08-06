@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { LoanEditor } from "@/components/LoanEditor";
 import { PageHeader } from "@/components/PageHeader";
+import { ApplicantPhotoCard } from "@/components/ApplicantPhotoCard";
 import { canAccessAllBranches, canAccessBranch, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getScorecardRules } from "@/lib/scorecard";
@@ -51,20 +52,27 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <AppShell user={user}>
-      <PageHeader title={loan.applicationNo} description={`${loan.branch.branchName} / ${loan.status.replaceAll("_", " ")}`} />
-      <LoanEditor
-        loan={JSON.parse(JSON.stringify(loan))}
-        criteria={JSON.parse(JSON.stringify(rules.criteria))}
-        settings={JSON.parse(JSON.stringify(rules.settings))}
-        currentUser={{ id: user.id, fullName: user.fullName, role: user.role, branchCode: user.branchCode, branchName: user.branchName }}
-        officers={officers.map((o) => ({ id: o.id, fullName: o.fullName, branchCode: o.branch.branchCode, branchName: o.branch.branchName }))}
-        loanProducts={loanProducts.map((p) => p.name)}
-        loanTermOptions={loanTermOptions.map((t) => `${t.months} months`)}
-        sexOptions={sexOptions.map((s) => s.label)}
-        civilStatusOptions={civilStatusOptions.map((c) => c.label)}
-        residenceTypeOptions={residenceTypeOptions.map((r) => r.label)}
-        addressLocations={addressLocations.map((l) => ({ region: l.region, province: l.province, cityMunicipality: l.cityMunicipality, barangay: l.barangay }))}
-      />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
+        <div className="min-w-0">
+          <PageHeader title={loan.applicationNo} description={`${loan.branch.branchName} / ${loan.status.replaceAll("_", " ")}`} />
+          <LoanEditor
+            loan={JSON.parse(JSON.stringify(loan))}
+            criteria={JSON.parse(JSON.stringify(rules.criteria))}
+            settings={JSON.parse(JSON.stringify(rules.settings))}
+            currentUser={{ id: user.id, fullName: user.fullName, role: user.role, branchCode: user.branchCode, branchName: user.branchName }}
+            officers={officers.map((o) => ({ id: o.id, fullName: o.fullName, branchCode: o.branch.branchCode, branchName: o.branch.branchName }))}
+            loanProducts={loanProducts.map((p) => p.name)}
+            loanTermOptions={loanTermOptions.map((t) => `${t.months} months`)}
+            sexOptions={sexOptions.map((s) => s.label)}
+            civilStatusOptions={civilStatusOptions.map((c) => c.label)}
+            residenceTypeOptions={residenceTypeOptions.map((r) => r.label)}
+            addressLocations={addressLocations.map((l) => ({ region: l.region, province: l.province, cityMunicipality: l.cityMunicipality, barangay: l.barangay }))}
+          />
+        </div>
+        <div className="justify-self-end">
+          <ApplicantPhotoCard loanId={loan.id} initialPhoto={loan.applicantProfile?.photoDataUrl} />
+        </div>
+      </div>
     </AppShell>
   );
 }
