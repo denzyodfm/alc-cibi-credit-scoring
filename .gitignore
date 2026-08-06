@@ -4,4 +4,6 @@ node_modules
 dist
 coverage
 *.log
+.dev-stable-*.out.log
+.dev-stable-*.err.log
 *.tsbuildinfo
