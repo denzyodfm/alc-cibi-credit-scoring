@@ -404,6 +404,11 @@ function withCurrentValue(list: string[], current?: string | null) {
   return [current, ...list];
 }
 
+function configuredValue(list: string[], current?: string | null) {
+  if (!current) return "";
+  return list.find((option) => option.toLocaleLowerCase() === current.toLocaleLowerCase()) ?? current;
+}
+
 function calculateAge(dob: string, until?: string) {
   if (!dob) return "";
   const birth = new Date(dob);
@@ -472,7 +477,8 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
     const officer = officersWithCurrent.find((o) => String(o.id) === selectedOfficerId);
     return officer ? `${officer.branchCode} / ${officer.branchName}` : `${loan.branch?.branchCode ?? "-"} / ${loan.branch?.branchName ?? "-"}`;
   }, [officersWithCurrent, selectedOfficerId, loan]);
-  const productOptions = useMemo(() => withCurrentValue(loanProducts, loan.loanProduct), [loanProducts, loan.loanProduct]);
+  const selectedLoanProduct = useMemo(() => configuredValue(loanProducts, loan.loanProduct), [loanProducts, loan.loanProduct]);
+  const productOptions = useMemo(() => withCurrentValue(loanProducts, selectedLoanProduct), [loanProducts, selectedLoanProduct]);
   const termOptions = useMemo(() => withCurrentValue(loanTermOptions, loan.desiredTerms), [loanTermOptions, loan.desiredTerms]);
   const sexOptionsWithCurrent = useMemo(() => withCurrentValue(sexOptions, loan.applicantProfile?.sex), [sexOptions, loan]);
   const civilStatusOptionsWithCurrent = useMemo(() => withCurrentValue(civilStatusOptions, loan.applicantProfile?.civilStatus), [civilStatusOptions, loan]);
@@ -764,7 +770,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
               <span className="label">Branch</span>
               <div className="input mt-1 bg-slate-50 text-slate-600">{selectedOfficerBranch}</div>
             </div>
-            <Select name="loanProduct" label="Loan product" defaultValue={loan.loanProduct} options={productOptions} />
+            <Select name="loanProduct" label="Loan product" defaultValue={selectedLoanProduct} options={productOptions} />
             <Field name="amountApplied" label="Amount applied" money defaultValue={loan.amountApplied} />
             <Select name="desiredTerms" label="Desired terms" defaultValue={loan.desiredTerms} options={termOptions} />
             <Field name="proposedAmortization" label="Proposed amortization" money defaultValue={loan.proposedAmortization} />

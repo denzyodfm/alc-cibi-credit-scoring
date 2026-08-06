@@ -55,13 +55,12 @@ export function ApplicantPhotoCard({ loanId, initialPhoto }: { loanId: number; i
   }
 
   return (
-    <div className="panel w-full p-3 sm:w-52">
-      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-700">Applicant Picture</div>
-      <div className="flex gap-3 sm:block">
-        <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-300 bg-slate-50 sm:h-36 sm:w-full">
+    <div className="panel w-40 p-2">
+      <div>
+        <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-md border border-slate-300 bg-slate-50">
           {photo ? <img src={photo} alt="Applicant" className="h-full w-full object-cover" /> : <UserRound size={48} className="text-slate-300" />}
         </div>
-        <div className="flex flex-1 flex-col justify-center gap-2 sm:mt-2 sm:flex-row">
+        <div className="mt-2 flex gap-1.5">
           <input
             ref={inputRef}
             className="hidden"
@@ -69,13 +68,24 @@ export function ApplicantPhotoCard({ loanId, initialPhoto }: { loanId: number; i
             accept="image/jpeg,image/png,image/webp"
             onChange={(event) => void choosePhoto(event.target.files?.[0])}
           />
-          <button type="button" className="btn-secondary flex-1" disabled={busy} onClick={() => inputRef.current?.click()}>
-            {busy ? <Loader2 className="animate-spin" /> : <Camera />}
+          <button
+            type="button"
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-blue-50 disabled:opacity-60"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
             {photo ? "Change" : "Upload"}
           </button>
           {photo ? (
-            <button type="button" className="btn-secondary" disabled={busy} onClick={() => void removePhoto()} aria-label="Remove applicant picture">
-              <Trash2 />
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white p-1.5 text-slate-600 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+              disabled={busy}
+              onClick={() => void removePhoto()}
+              aria-label="Remove applicant picture"
+            >
+              <Trash2 size={14} />
             </button>
           ) : null}
         </div>
