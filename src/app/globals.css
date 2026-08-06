@@ -39,7 +39,7 @@ body {
   }
 
   .btn-primary {
-    @apply btn bg-alc-green text-white hover:bg-teal-800;
+    @apply btn bg-alc-blue text-white hover:bg-blue-800;
   }
 
   .btn-secondary {

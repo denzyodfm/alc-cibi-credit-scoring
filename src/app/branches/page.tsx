@@ -24,7 +24,7 @@ export default async function BranchesPage() {
                 <h2 className="text-lg font-bold">{branch.branchName}</h2>
                 <p className="mt-1 text-sm text-slate-500">{branch.branchAddress ?? "No address yet"}</p>
               </div>
-              <span className="rounded-full bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-700">{branch.status}</span>
+              <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{branch.status}</span>
             </div>
             <div className="mt-4 text-sm">
               <div className="font-semibold">Users under branch: {branch.users.length}</div>

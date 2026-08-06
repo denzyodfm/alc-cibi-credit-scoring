@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LogOut, Building2, Users, LayoutDashboard, FileText, Scale, Printer, Settings, Menu, X } from "lucide-react";
+import { LogOut, Building2, Users, LayoutDashboard, FileText, Scale, Printer, Settings, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { SessionUser } from "@/lib/auth";
 
 const nav = [
@@ -17,23 +17,38 @@ const nav = [
 
 export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="min-h-screen">
       <aside
-        className={`no-print fixed inset-y-0 left-0 z-40 w-64 transform border-r border-slate-200 bg-white transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`no-print fixed inset-y-0 left-0 z-40 w-64 transform border-r border-blue-100 bg-white transition-[transform,width] duration-200 ease-in-out lg:translate-x-0 ${
+          collapsed ? "lg:w-20" : "lg:w-64"
+        } ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-5">
-          <div>
-            <div className="text-sm font-bold text-alc-green">Agusan Lending Corp.</div>
-            <div className="mt-1 text-xs text-slate-500">CI/BI and Credit Scorecard</div>
+        <div className={`flex min-h-[73px] items-center justify-between border-b border-blue-100 py-4 ${collapsed ? "lg:px-3" : "px-5"}`}>
+          <div className={collapsed ? "lg:w-full lg:text-center" : ""}>
+            <div className="font-bold text-alc-blue">
+              <span className={collapsed ? "hidden lg:inline" : "hidden"}>ALC</span>
+              <span className={collapsed ? "lg:hidden" : ""}>AGUSAN LENDING CORPORATION</span>
+            </div>
+            <div className={`mt-1 text-xs text-slate-500 ${collapsed ? "lg:hidden" : ""}`}>CI/BI and Credit Scorecard</div>
           </div>
           <button type="button" className="rounded-md p-1 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu">
             <X size={18} />
           </button>
         </div>
+        <button
+          type="button"
+          className="absolute -right-4 top-20 hidden h-12 w-8 items-center justify-center rounded-full border border-blue-200 bg-alc-blue text-white shadow-md transition hover:bg-blue-800 lg:flex"
+          onClick={() => setCollapsed((current) => !current)}
+          aria-label={collapsed ? "Show menu labels" : "Hide menu labels"}
+          title={collapsed ? "Expand menu" : "Collapse menu"}
+        >
+          {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+        </button>
         <nav className="space-y-1 p-3">
           {nav.map((item) => {
             const Icon = item.icon;
@@ -42,17 +57,18 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                className={`flex items-center rounded-md px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-alc-blue ${collapsed ? "lg:justify-center lg:px-2" : "gap-4"}`}
+                title={collapsed ? item.label : undefined}
               >
-                <Icon size={17} />
-                {item.label}
+                <Icon size={23} className="shrink-0 text-alc-blue" />
+                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
               </Link>
             );
           })}
         </nav>
       </aside>
       {open ? <div className="no-print fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={() => setOpen(false)} /> : null}
-      <div className="lg:pl-64">
+      <div className={`transition-[padding] duration-200 ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}>
         <header className="no-print sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">

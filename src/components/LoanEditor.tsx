@@ -733,14 +733,14 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
             type="button"
             onClick={() => setTab(item)}
             className={`rounded px-1 py-0.5 text-[10px] font-semibold leading-tight transition md:rounded-md md:px-3 md:py-2 md:text-sm lg:px-4 lg:text-base ${
-              tab === item ? "bg-alc-green text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              tab === item ? "bg-alc-blue text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-blue-50"
             }`}
           >
             {item}
           </button>
         ))}
       </div>
-      {message ? <div className="mb-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">{message}</div> : null}
+      {message ? <div className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">{message}</div> : null}
       <section className="panel p-4">
         <div className={tab === "Loan" ? undefined : "hidden"}>
           <Grid>
@@ -1168,7 +1168,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
           <div className="mt-4 grid gap-3 sm:grid-cols-2 md:max-w-lg">
             <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="label">Total income</div>
-              <div className="text-lg font-semibold tabular-nums text-alc-green">{peso(totalIncome)}</div>
+              <div className="text-lg font-semibold tabular-nums text-alc-blue">{peso(totalIncome)}</div>
             </div>
             <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="label">Total expense</div>
@@ -1295,7 +1295,7 @@ function Grid({ children }: { children: React.ReactNode }) {
 function LabelText({ icon: Icon, children }: { icon?: LucideIcon; children: React.ReactNode }) {
   return (
     <span className="label flex items-center gap-1.5">
-      {Icon ? <Icon size={13} className="shrink-0 text-slate-400" /> : null}
+      {Icon ? <Icon size={15} className="shrink-0 text-alc-blue" /> : null}
       <span>{children}</span>
     </span>
   );
