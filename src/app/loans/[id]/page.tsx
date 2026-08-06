@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { LoanEditor } from "@/components/LoanEditor";
 import { PageHeader } from "@/components/PageHeader";
+import { ApplicantPhotoCard } from "@/components/ApplicantPhotoCard";
 import { canAccessAllBranches, canAccessBranch, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getScorecardRules } from "@/lib/scorecard";
@@ -51,7 +52,11 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <AppShell user={user}>
-      <PageHeader title={loan.applicationNo} description={`${loan.branch.branchName} / ${loan.status.replaceAll("_", " ")}`} />
+      <PageHeader
+        title={loan.applicationNo}
+        description={`${loan.branch.branchName} / ${loan.status.replaceAll("_", " ")}`}
+        action={<ApplicantPhotoCard loanId={loan.id} initialPhoto={loan.applicantProfile?.photoDataUrl} />}
+      />
       <LoanEditor
         loan={JSON.parse(JSON.stringify(loan))}
         criteria={JSON.parse(JSON.stringify(rules.criteria))}

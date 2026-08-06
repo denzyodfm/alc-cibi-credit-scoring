@@ -228,6 +228,8 @@ model ApplicantProfile {
   philhealthNo          String?          @map("philhealth_no") @db.VarChar(80)
   pagibigNo             String?          @map("pagibig_no") @db.VarChar(80)
   driversLicense        String?          @map("drivers_license") @db.VarChar(80)
+  photoDataUrl          String?          @map("photo_data_url") @db.LongText
+  photoMimeType         String?          @map("photo_mime_type") @db.VarChar(40)
   createdAt             DateTime         @default(now()) @map("created_at")
   updatedAt             DateTime         @updatedAt @map("updated_at")
   loanApplication       LoanApplication  @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
