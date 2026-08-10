@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-const COOKIE_NAME = "alc_session";
+const COOKIE_NAME = "alc_cibi_session";
 
 export type SessionUser = {
   id: number;
