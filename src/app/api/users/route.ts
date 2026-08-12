@@ -12,23 +12,14 @@ const schema = z.object({
   username: z.string().min(3),
   password: z.string().min(8),
   branchId: z.coerce.number(),
-  role: z.enum([
-    "SUPER_ADMIN",
-    "HEAD_OFFICE_ADMIN",
-    "HEAD_OFFICE_CREDIT_COMMITTEE",
-    "AREA_TEAM_LEADER",
-    "BRANCH_TEAM_LEADER",
-    "ACCOUNT_OFFICER",
-    "CASHIER",
-    "BOOKKEEPER",
-    "VIEWER"
-  ])
+  positionId: z.coerce.number().int().positive()
 });
 
 export async function POST(request: Request) {
   const user = await requireUser();
   if (!canManageSetup(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = schema.parse(await request.json());
+  const position = await prisma.position.findFirstOrThrow({ where: { id: parsed.positionId, isActive: true } });
   const created = await prisma.user.create({
     data: {
       employeeNo: parsed.employeeNo,
@@ -37,7 +28,8 @@ export async function POST(request: Request) {
       username: parsed.username,
       passwordHash: await bcrypt.hash(parsed.password, 12),
       branchId: parsed.branchId,
-      role: parsed.role
+      positionId: position.id,
+      role: position.systemRole
     }
   });
   await audit({ userId: user.id, action: "User creation/update", entityType: "User", entityId: created.id, newValue: { ...created, passwordHash: "[redacted]" } });

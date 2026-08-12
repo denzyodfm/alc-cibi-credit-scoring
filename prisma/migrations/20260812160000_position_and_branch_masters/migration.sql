@@ -1,0 +1,13 @@
+CREATE TABLE `positions` (
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(120) NOT NULL,
+  `system_role` ENUM('SUPER_ADMIN','HEAD_OFFICE_ADMIN','HEAD_OFFICE_CREDIT_COMMITTEE','AREA_TEAM_LEADER','BRANCH_TEAM_LEADER','ACCOUNT_OFFICER','CASHIER','BOOKKEEPER','VIEWER') NOT NULL,
+  `is_active` BOOLEAN NOT NULL DEFAULT true,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
+  UNIQUE INDEX `positions_name_key`(`name`),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE `users` ADD COLUMN `position_id` INTEGER NULL;
+CREATE INDEX `users_position_id_idx` ON `users`(`position_id`);
+ALTER TABLE `users` ADD CONSTRAINT `users_position_id_fkey` FOREIGN KEY (`position_id`) REFERENCES `positions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

@@ -372,6 +372,15 @@ async function main() {
   const bxu = await prisma.branch.findUniqueOrThrow({ where: { branchCode: "002" } });
   const passwordHash = await bcrypt.hash("Password123!", 12);
 
+  const positionDefaults = [
+    ["Branch AO", UserRole.ACCOUNT_OFFICER], ["Branch AA", UserRole.ACCOUNT_OFFICER], ["Branch Senior AO", UserRole.ACCOUNT_OFFICER],
+    ["Branch Bookkeeper", UserRole.BOOKKEEPER], ["Branch Cashier", UserRole.CASHIER], ["Branch TL / MA", UserRole.BRANCH_TEAM_LEADER],
+    ["Area TL", UserRole.AREA_TEAM_LEADER], ["Head Office TL", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["Remedial", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE],
+    ["Accounting", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["Head Office Cashier", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["CMG", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE],
+    ["Finance Manager", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["President", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE]
+  ] as const;
+  for (const [name, systemRole] of positionDefaults) await prisma.position.upsert({ where: { name }, update: { systemRole, isActive: true }, create: { name, systemRole } });
+
   const users = [
     ["SA-001", "Super Admin", "superadmin@alc.local", "superadmin", UserRole.SUPER_ADMIN, ho.id],
     ["HOA-001", "Head Office Admin", "hoadmin@alc.local", "hoadmin", UserRole.HEAD_OFFICE_ADMIN, ho.id],

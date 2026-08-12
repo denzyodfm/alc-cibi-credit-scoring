@@ -4,19 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 
-const roles = [
-  "SUPER_ADMIN",
-  "HEAD_OFFICE_ADMIN",
-  "HEAD_OFFICE_CREDIT_COMMITTEE",
-  "AREA_TEAM_LEADER",
-  "BRANCH_TEAM_LEADER",
-  "ACCOUNT_OFFICER",
-  "CASHIER",
-  "BOOKKEEPER",
-  "VIEWER"
-];
-
-export function UserForm({ branches }: { branches: { id: number; branchName: string; branchCode: string }[] }) {
+export function UserForm({ branches, positions }: { branches: { id: number; branchName: string; branchCode: string }[]; positions:{id:number;name:string}[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -52,8 +40,8 @@ export function UserForm({ branches }: { branches: { id: number; branchName: str
       <select className="input" name="branchId" required>
         {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.branchCode} / {branch.branchName}</option>)}
       </select>
-      <select className="input" name="role" required>
-        {roles.map((role) => <option key={role} value={role}>{role.replaceAll("_", " ")}</option>)}
+      <select className="input" name="positionId" required>
+        {positions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
       </select>
       <button className="btn-primary">Save user</button>
       <button className="btn-secondary" type="button" onClick={() => setOpen(false)}>Cancel</button>
