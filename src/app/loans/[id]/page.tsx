@@ -4,9 +4,10 @@ import { LoanEditor } from "@/components/LoanEditor";
 import { PageHeader } from "@/components/PageHeader";
 import { ApplicantPhotoCard } from "@/components/ApplicantPhotoCard";
 import { LoanProcessingWorkspace } from "@/components/LoanProcessingWorkspace";
-import { canAccessAllBranches, canAccessBranch, requireUser } from "@/lib/auth";
+import { canAccessAllBranches, canAccessBranch, isCommitteeAdministrator, isCommitteeParticipant, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getScorecardRules } from "@/lib/scorecard";
+import { approvalStageLimit } from "@/lib/committee-config";
 
 export default async function LoanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -37,7 +38,15 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
       endorser: true
     }
   });
-  if (!loan || !canAccessBranch(user, loan.branchId)) notFound();
+  if (!loan) notFound();
+  const committeeStage = ["FOR_CREDIT_COMMITTEE", "APPROVED", "DENIED"].includes(loan.status);
+  const stageLimit = approvalStageLimit(Number(loan.amountApplied));
+  const currentReview = committeeStage ? loan.committeeReviews.filter((review) => review.approvalSequence <= stageLimit).sort((a, b) => a.approvalSequence - b.approvalSequence).find((review) => review.decision === "PENDING") : undefined;
+  const assignedCommitteeAccess = committeeStage && loan.status === "FOR_CREDIT_COMMITTEE" && currentReview?.reviewerId === user.id;
+  if (!canAccessBranch(user, loan.branchId) && !assignedCommitteeAccess) notFound();
+  if (isCommitteeParticipant(user) && !isCommitteeAdministrator(user) && committeeStage) {
+    if (loan.status !== "FOR_CREDIT_COMMITTEE" || currentReview?.reviewerId !== user.id) notFound();
+  }
   const rules = await getScorecardRules();
   const [officers, loanProducts, loanTermOptions, sexOptions, civilStatusOptions, residenceTypeOptions, addressLocations] = await Promise.all([
     prisma.user.findMany({

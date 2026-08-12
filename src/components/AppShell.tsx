@@ -11,7 +11,7 @@ const nav = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/loans", label: "Applications", icon: FileText },
   { href: "/endorsement", label: "Endorsement", icon: BadgeCheck, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "ACCOUNT_ASSISTANT"] },
-  { href: "/committee", label: "Credit Committee", icon: Scale, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "HEAD_OFFICE_CREDIT_COMMITTEE", "AREA_TEAM_LEADER", "BRANCH_TEAM_LEADER"] },
+  { href: "/committee", label: "Credit Committee", icon: Scale, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "HEAD_OFFICE_CREDIT_COMMITTEE", "BOOKKEEPER", "AREA_TEAM_LEADER", "BRANCH_TEAM_LEADER"] },
   { href: "/reports", label: "Reports", icon: Printer },
   { href: "/settings", label: "Settings", icon: Settings }
 ];

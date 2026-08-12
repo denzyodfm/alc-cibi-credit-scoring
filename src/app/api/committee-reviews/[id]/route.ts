@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { canReviewCredit, requireUser } from "@/lib/auth";
+import { canReviewCredit, isCommitteeAdministrator, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { approvalStageLimit } from "@/lib/committee-config";
 
 const schema = z.object({
   decision: z.enum(["PENDING", "APPROVED", "DENIED", "RETURNED_FOR_COMPLETION"]),
@@ -19,7 +20,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const body = schema.parse(await request.json());
   const existing = await prisma.creditCommitteeReview.findUnique({ where: { id }, include: { loanApplication: true, creditCommittee: { include: { members: true } } } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (existing.reviewerId !== user.id && user.role !== "SUPER_ADMIN") return NextResponse.json({ error: "This review is assigned to another approver." }, { status: 403 });
+  const stageLimit = approvalStageLimit(Number(existing.loanApplication.amountApplied));
+  if (existing.approvalSequence > stageLimit) return NextResponse.json({ error: "This approval stage is not required for the loan amount." }, { status: 409 });
+  if (existing.reviewerId !== user.id && !isCommitteeAdministrator(user)) return NextResponse.json({ error: "This review is assigned to another approver." }, { status: 403 });
+  const currentPending = await prisma.creditCommitteeReview.findFirst({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, approvalSequence: { lte: stageLimit }, decision: "PENDING" }, orderBy: { approvalSequence: "asc" } });
+  if (!isCommitteeAdministrator(user) && currentPending?.id !== existing.id) return NextResponse.json({ error: "This loan is currently assigned to an earlier approval stage." }, { status: 409 });
   if (body.decision === "APPROVED" && existing.approvalSequence > 1) {
     const incompleteEarlier = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, approvalSequence: { lt: existing.approvalSequence }, decision: { not: "APPROVED" } } });
     if (incompleteEarlier) return NextResponse.json({ error: "Earlier approval levels must approve first." }, { status: 409 });
@@ -32,7 +37,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   });
 
   if (body.decision === "APPROVED") {
-    const pendingRequired = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, id: { not: id }, decision: { not: "APPROVED" } } });
+    const pendingRequired = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, approvalSequence: { lte: stageLimit }, id: { not: id }, decision: { not: "APPROVED" } } });
     if (pendingRequired === 0) await prisma.loanApplication.update({ where: { id: existing.loanApplicationId }, data: { status: "APPROVED" } });
   } else if (body.decision === "DENIED") {
     await prisma.loanApplication.update({ where: { id: existing.loanApplicationId }, data: { status: "DENIED" } });

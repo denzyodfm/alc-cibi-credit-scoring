@@ -112,7 +112,16 @@ export function canReviewCredit(user: SessionUser) {
     user.role === "SUPER_ADMIN" ||
     user.role === "HEAD_OFFICE_ADMIN" ||
     user.role === "HEAD_OFFICE_CREDIT_COMMITTEE" ||
+    user.role === "BOOKKEEPER" ||
     user.role === "BRANCH_TEAM_LEADER" ||
     user.role === "AREA_TEAM_LEADER"
   );
+}
+
+export function isCommitteeAdministrator(user: SessionUser) {
+  return user.role === "SUPER_ADMIN" || user.role === "HEAD_OFFICE_ADMIN";
+}
+
+export function isCommitteeParticipant(user: SessionUser) {
+  return ["BOOKKEEPER", "BRANCH_TEAM_LEADER", "AREA_TEAM_LEADER", "HEAD_OFFICE_CREDIT_COMMITTEE"].includes(user.role);
 }
