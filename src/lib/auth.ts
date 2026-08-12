@@ -103,6 +103,10 @@ export function canManageSetup(user: SessionUser) {
   return user.role === "SUPER_ADMIN" || user.role === "HEAD_OFFICE_ADMIN";
 }
 
+export function canEndorseCredit(user: SessionUser) {
+  return user.role === "ACCOUNT_ASSISTANT" || canManageSetup(user);
+}
+
 export function canReviewCredit(user: SessionUser) {
   return (
     user.role === "SUPER_ADMIN" ||

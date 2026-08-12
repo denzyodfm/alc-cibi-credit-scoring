@@ -373,7 +373,7 @@ async function main() {
   const passwordHash = await bcrypt.hash("Password123!", 12);
 
   const positionDefaults = [
-    ["Branch AO", UserRole.ACCOUNT_OFFICER], ["Branch AA", UserRole.ACCOUNT_OFFICER], ["Branch Senior AO", UserRole.ACCOUNT_OFFICER],
+    ["Branch AO", UserRole.ACCOUNT_OFFICER], ["Branch AA", UserRole.ACCOUNT_ASSISTANT], ["Branch Senior AO", UserRole.ACCOUNT_OFFICER],
     ["Branch Bookkeeper", UserRole.BOOKKEEPER], ["Branch Cashier", UserRole.CASHIER], ["Branch TL / MA", UserRole.BRANCH_TEAM_LEADER],
     ["Area TL", UserRole.AREA_TEAM_LEADER], ["Head Office TL", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["Remedial", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE],
     ["Accounting", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["Head Office Cashier", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE], ["CMG", UserRole.HEAD_OFFICE_CREDIT_COMMITTEE],

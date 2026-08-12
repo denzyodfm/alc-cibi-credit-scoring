@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LogOut, Building2, Users, LayoutDashboard, FileText, Scale, Printer, Settings, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, Building2, Users, LayoutDashboard, FileText, Scale, BadgeCheck, Printer, Settings, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { SessionUser } from "@/lib/auth";
 
 const nav = [
@@ -10,7 +10,8 @@ const nav = [
   { href: "/branches", label: "Branches", icon: Building2 },
   { href: "/users", label: "Users", icon: Users },
   { href: "/loans", label: "Applications", icon: FileText },
-  { href: "/committee", label: "Endorsement & Committee", icon: Scale },
+  { href: "/endorsement", label: "Endorsement", icon: BadgeCheck, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "ACCOUNT_ASSISTANT"] },
+  { href: "/committee", label: "Credit Committee", icon: Scale, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "HEAD_OFFICE_CREDIT_COMMITTEE", "AREA_TEAM_LEADER", "BRANCH_TEAM_LEADER"] },
   { href: "/reports", label: "Reports", icon: Printer },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
@@ -50,7 +51,7 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
           {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
         </button>
         <nav className="space-y-1 p-3">
-          {nav.map((item) => {
+          {nav.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => {
             const Icon = item.icon;
             return (
               <Link
