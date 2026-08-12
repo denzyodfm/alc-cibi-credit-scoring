@@ -104,5 +104,11 @@ export function canManageSetup(user: SessionUser) {
 }
 
 export function canReviewCredit(user: SessionUser) {
-  return user.role === "SUPER_ADMIN" || user.role === "HEAD_OFFICE_CREDIT_COMMITTEE" || user.role === "BRANCH_TEAM_LEADER";
+  return (
+    user.role === "SUPER_ADMIN" ||
+    user.role === "HEAD_OFFICE_ADMIN" ||
+    user.role === "HEAD_OFFICE_CREDIT_COMMITTEE" ||
+    user.role === "BRANCH_TEAM_LEADER" ||
+    user.role === "AREA_TEAM_LEADER"
+  );
 }
