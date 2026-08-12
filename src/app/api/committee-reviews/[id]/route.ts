@@ -23,6 +23,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const stageLimit = approvalStageLimit(Number(existing.loanApplication.amountApplied));
   if (existing.approvalSequence > stageLimit) return NextResponse.json({ error: "This approval stage is not required for the loan amount." }, { status: 409 });
   if (existing.reviewerId !== user.id && !isCommitteeAdministrator(user)) return NextResponse.json({ error: "This review is assigned to another approver." }, { status: 403 });
+  if (!isCommitteeAdministrator(user) && ["BOOKKEEPER", "BRANCH_TEAM_LEADER"].includes(user.role) && existing.loanApplication.branchId !== user.branchId) return NextResponse.json({ error: "This loan belongs to another branch." }, { status: 403 });
   const currentPending = await prisma.creditCommitteeReview.findFirst({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, approvalSequence: { lte: stageLimit }, decision: "PENDING" }, orderBy: { approvalSequence: "asc" } });
   if (!isCommitteeAdministrator(user) && currentPending?.id !== existing.id) return NextResponse.json({ error: "This loan is currently assigned to an earlier approval stage." }, { status: 409 });
   if (body.decision === "APPROVED" && existing.approvalSequence > 1) {

@@ -43,6 +43,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
   const stageLimit = approvalStageLimit(Number(loan.amountApplied));
   const currentReview = committeeStage ? loan.committeeReviews.filter((review) => review.approvalSequence <= stageLimit).sort((a, b) => a.approvalSequence - b.approvalSequence).find((review) => review.decision === "PENDING") : undefined;
   const assignedCommitteeAccess = committeeStage && loan.status === "FOR_CREDIT_COMMITTEE" && currentReview?.reviewerId === user.id;
+  if (assignedCommitteeAccess && ["BOOKKEEPER", "BRANCH_TEAM_LEADER"].includes(user.role) && loan.branchId !== user.branchId) notFound();
   if (!canAccessBranch(user, loan.branchId) && !assignedCommitteeAccess) notFound();
   if (isCommitteeParticipant(user) && !isCommitteeAdministrator(user) && committeeStage) {
     if (loan.status !== "FOR_CREDIT_COMMITTEE" || currentReview?.reviewerId !== user.id) notFound();
