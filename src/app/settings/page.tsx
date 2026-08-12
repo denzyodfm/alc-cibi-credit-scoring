@@ -4,17 +4,21 @@ import { LoanProductManager } from "@/components/LoanProductManager";
 import { LoanTermManager } from "@/components/LoanTermManager";
 import { LookupOptionManager } from "@/components/LookupOptionManager";
 import { SettingsTabs } from "@/components/SettingsTabs";
+import { CommitteeSettingsManager } from "@/components/CommitteeSettingsManager";
 import { canManageSetup, requireUser } from "@/lib/auth";
+import { APPROVAL_TIERS, COMMITTEE_ROLES } from "@/lib/committee-config";
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [products, terms, sexOptions, civilStatusOptions, residenceTypeOptions] = await Promise.all([
+  const [products, terms, sexOptions, civilStatusOptions, residenceTypeOptions, branches, users] = await Promise.all([
     prisma.loanProduct.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.loanTermOption.findMany({ orderBy: [{ sortOrder: "asc" }, { months: "asc" }] }),
     prisma.sexOption.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
     prisma.civilStatusOption.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
-    prisma.residenceTypeOption.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] })
+    prisma.residenceTypeOption.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
+    prisma.branch.findMany({ where: { status: "ACTIVE" }, include: { committeeAssignments: { include: { user: true } } }, orderBy: [{ isHeadOffice: "desc" }, { branchCode: "asc" }] }),
+    prisma.user.findMany({ where: { status: "ACTIVE" }, include: { branch: true }, orderBy: { fullName: "asc" } })
   ]);
   const canManage = canManageSetup(user);
 
@@ -76,6 +80,11 @@ export default async function SettingsPage() {
                 sortable
               />
             )
+          },
+          {
+            id: "credit-committee",
+            label: "Credit Committee",
+            content: <CommitteeSettingsManager branches={JSON.parse(JSON.stringify(branches))} users={users.map((item)=>({id:item.id,fullName:item.fullName,branchCode:item.branch.branchCode}))} roles={COMMITTEE_ROLES} tiers={APPROVAL_TIERS} canManage={canManage}/>
           }
         ]}
       />

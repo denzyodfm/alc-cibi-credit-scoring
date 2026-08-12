@@ -13,7 +13,7 @@ export default async function CommitteePage() {
   const endorsements = canReviewCredit(user) ? await prisma.loanApplication.findMany({ where: { status: "FOR_ENDORSEMENT", ...branchScope }, include: { applicantProfile: true, branch: true, loanOfficer: true, scorecard: true }, orderBy: { updatedAt: "asc" } }) : [];
   const loans = canReviewCredit(user) ? await prisma.loanApplication.findMany({
     where: { status: { in: ["FOR_CREDIT_COMMITTEE", "APPROVED", "DENIED"] }, ...branchScope },
-    include: { applicantProfile: true, branch: true, loanOfficer: true, scorecard: true, committeeReviews: { include: { reviewer: true, creditCommittee: true }, orderBy: { createdAt: "asc" } } },
+    include: { applicantProfile: true, branch: true, loanOfficer: true, scorecard: true, committeeReviews: { include: { reviewer: true, creditCommittee: true }, orderBy: [{ approvalSequence: "asc" }, { createdAt: "asc" }] } },
     orderBy: { updatedAt: "desc" }
   }) : [];
   const approvers = canReviewCredit(user) ? await prisma.user.findMany({ where: { status: "ACTIVE", role: { in: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "HEAD_OFFICE_CREDIT_COMMITTEE", "BRANCH_TEAM_LEADER", "AREA_TEAM_LEADER"] } }, select: { id: true, fullName: true, role: true }, orderBy: { id: "asc" } }) : [];

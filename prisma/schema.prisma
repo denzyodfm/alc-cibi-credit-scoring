@@ -82,18 +82,19 @@ enum CommitteeDecision {
 }
 
 model Branch {
-  id               Int                     @id @default(autoincrement())
-  branchCode       String                  @unique @map("branch_code") @db.VarChar(20)
-  branchName       String                  @map("branch_name") @db.VarChar(120)
-  branchAddress    String?                 @map("branch_address") @db.VarChar(255)
-  isHeadOffice     Boolean                 @default(false) @map("is_head_office")
-  status           BranchStatus            @default(ACTIVE)
-  createdAt        DateTime                @default(now()) @map("created_at")
-  updatedAt        DateTime                @updatedAt @map("updated_at")
-  users            User[]
-  assignments      BranchStaffAssignment[]
-  loanApplications LoanApplication[]
-  creditCommittees CreditCommittee[]
+  id                   Int                         @id @default(autoincrement())
+  branchCode           String                      @unique @map("branch_code") @db.VarChar(20)
+  branchName           String                      @map("branch_name") @db.VarChar(120)
+  branchAddress        String?                     @map("branch_address") @db.VarChar(255)
+  isHeadOffice         Boolean                     @default(false) @map("is_head_office")
+  status               BranchStatus                @default(ACTIVE)
+  createdAt            DateTime                    @default(now()) @map("created_at")
+  updatedAt            DateTime                    @updatedAt @map("updated_at")
+  users                User[]
+  assignments          BranchStaffAssignment[]
+  loanApplications     LoanApplication[]
+  creditCommittees     CreditCommittee[]
+  committeeAssignments BranchCommitteeAssignment[]
 
   @@map("branches")
 }
@@ -117,26 +118,27 @@ model BranchStaffAssignment {
 }
 
 model User {
-  id                   Int                     @id @default(autoincrement())
-  employeeNo           String                  @unique @map("employee_no") @db.VarChar(50)
-  fullName             String                  @map("full_name") @db.VarChar(160)
-  email                String                  @unique @db.VarChar(160)
-  username             String                  @unique @db.VarChar(80)
-  passwordHash         String                  @map("password_hash") @db.VarChar(255)
-  branchId             Int                     @map("branch_id")
-  role                 UserRole
-  status               UserStatus              @default(ACTIVE)
-  createdAt            DateTime                @default(now()) @map("created_at")
-  updatedAt            DateTime                @updatedAt @map("updated_at")
-  branch               Branch                  @relation(fields: [branchId], references: [id])
-  assignments          BranchStaffAssignment[]
-  loanApplications     LoanApplication[]       @relation("LoanOfficer")
-  createdApplications  LoanApplication[]       @relation("ApplicationCreator")
-  scoredScorecards     CreditScorecard[]       @relation("ScorecardScorer")
-  committeeMemberships CreditCommitteeMember[]
-  committeeReviews     CreditCommitteeReview[]
-  endorsedApplications LoanApplication[]       @relation("LoanEndorser")
-  auditLogs            AuditLog[]
+  id                         Int                         @id @default(autoincrement())
+  employeeNo                 String                      @unique @map("employee_no") @db.VarChar(50)
+  fullName                   String                      @map("full_name") @db.VarChar(160)
+  email                      String                      @unique @db.VarChar(160)
+  username                   String                      @unique @db.VarChar(80)
+  passwordHash               String                      @map("password_hash") @db.VarChar(255)
+  branchId                   Int                         @map("branch_id")
+  role                       UserRole
+  status                     UserStatus                  @default(ACTIVE)
+  createdAt                  DateTime                    @default(now()) @map("created_at")
+  updatedAt                  DateTime                    @updatedAt @map("updated_at")
+  branch                     Branch                      @relation(fields: [branchId], references: [id])
+  assignments                BranchStaffAssignment[]
+  loanApplications           LoanApplication[]           @relation("LoanOfficer")
+  createdApplications        LoanApplication[]           @relation("ApplicationCreator")
+  scoredScorecards           CreditScorecard[]           @relation("ScorecardScorer")
+  committeeMemberships       CreditCommitteeMember[]
+  committeeReviews           CreditCommitteeReview[]
+  branchCommitteeAssignments BranchCommitteeAssignment[]
+  endorsedApplications       LoanApplication[]           @relation("LoanEndorser")
+  auditLogs                  AuditLog[]
 
   @@index([branchId])
   @@map("users")
@@ -726,6 +728,21 @@ model CreditCommittee {
   @@map("credit_committees")
 }
 
+model BranchCommitteeAssignment {
+  id        Int      @id @default(autoincrement())
+  branchId  Int      @map("branch_id")
+  roleKey   String   @map("role_key") @db.VarChar(50)
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([branchId, roleKey])
+  @@index([userId])
+  @@map("branch_committee_assignments")
+}
+
 model CreditCommitteeMember {
   id                Int             @id @default(autoincrement())
   creditCommitteeId Int             @map("credit_committee_id")
@@ -748,6 +765,8 @@ model CreditCommitteeReview {
   loanApplicationId Int               @map("loan_application_id")
   creditCommitteeId Int               @map("credit_committee_id")
   reviewerId        Int               @map("reviewer_id")
+  committeeRole     String?           @map("committee_role") @db.VarChar(80)
+  approvalSequence  Int               @default(1) @map("approval_sequence")
   decision          CommitteeDecision @default(PENDING)
   remarks           String?           @db.Text
   approvalCode      String?           @map("approval_code") @db.VarChar(40)

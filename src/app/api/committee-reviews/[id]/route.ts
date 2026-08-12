@@ -20,21 +20,19 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const existing = await prisma.creditCommitteeReview.findUnique({ where: { id }, include: { loanApplication: true, creditCommittee: { include: { members: true } } } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (existing.reviewerId !== user.id && user.role !== "SUPER_ADMIN") return NextResponse.json({ error: "This review is assigned to another approver." }, { status: 403 });
-  const member = existing.creditCommittee.members.find((item) => item.userId === existing.reviewerId);
-  const earlierReviewerIds = existing.creditCommittee.members.filter((item) => item.isRequired && item.approvalSequence < (member?.approvalSequence ?? 1)).map((item) => item.userId);
-  if (body.decision === "APPROVED" && earlierReviewerIds.length) {
-    const earlier = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, reviewerId: { in: earlierReviewerIds }, decision: "APPROVED" } });
-    if (earlier !== earlierReviewerIds.length) return NextResponse.json({ error: "Earlier approval levels must approve first." }, { status: 409 });
+  if (body.decision === "APPROVED" && existing.approvalSequence > 1) {
+    const incompleteEarlier = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, approvalSequence: { lt: existing.approvalSequence }, decision: { not: "APPROVED" } } });
+    if (incompleteEarlier) return NextResponse.json({ error: "Earlier approval levels must approve first." }, { status: 409 });
   }
   const now = new Date();
-  const approvalCode = body.decision === "PENDING" ? null : `APR-${now.getFullYear()}-${String(existing.loanApplicationId).padStart(5, "0")}-${String(existing.reviewerId).padStart(3, "0")}`;
+  const approvalCode = body.decision === "PENDING" ? null : `APR-${now.getFullYear()}-${String(existing.loanApplicationId).padStart(5, "0")}-${String(existing.approvalSequence).padStart(2, "0")}-${String(existing.reviewerId).padStart(3, "0")}`;
   const review = await prisma.creditCommitteeReview.update({
     where: { id },
     data: { decision: body.decision, remarks: body.remarks, recommendedAmount: body.recommendedAmount, recommendedTerms: body.recommendedTerms, approvalCode, reviewedAt: body.decision === "PENDING" ? null : now }
   });
 
   if (body.decision === "APPROVED") {
-    const pendingRequired = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, id: { not: id }, decision: { not: "APPROVED" }, reviewerId: { in: existing.creditCommittee.members.filter((m) => m.isRequired).map((m) => m.userId) } } });
+    const pendingRequired = await prisma.creditCommitteeReview.count({ where: { loanApplicationId: existing.loanApplicationId, creditCommitteeId: existing.creditCommitteeId, id: { not: id }, decision: { not: "APPROVED" } } });
     if (pendingRequired === 0) await prisma.loanApplication.update({ where: { id: existing.loanApplicationId }, data: { status: "APPROVED" } });
   } else if (body.decision === "DENIED") {
     await prisma.loanApplication.update({ where: { id: existing.loanApplicationId }, data: { status: "DENIED" } });

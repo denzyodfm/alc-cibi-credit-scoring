@@ -138,8 +138,24 @@ export async function routeToCreditCommittee(loanApplicationId: number, actorId:
     include: { branch: true }
   });
   const amount = Number(loan.amountApplied);
+  const { APPROVAL_TIERS, committeeRoleLabel } = await import("@/lib/committee-config");
+  const tier = APPROVAL_TIERS.find((item) => amount >= item.min && (item.max === null || amount <= item.max));
+  if (!tier) return null;
+  const assignments = await prisma.branchCommitteeAssignment.findMany({ where: { branchId: loan.branchId, roleKey: { in: [...tier.roles] } } });
+  const byRole = new Map(assignments.map((item) => [item.roleKey, item.userId]));
+  if (tier.roles.some((roleKey) => !byRole.has(roleKey))) return null;
+
+  const committeeName = `${loan.branch.branchCode} · ${tier.label}`;
+  let configuredCommittee = await prisma.creditCommittee.findFirst({ where: { committeeName, branchId: loan.branchId } });
+  configuredCommittee = configuredCommittee
+    ? await prisma.creditCommittee.update({ where: { id: configuredCommittee.id }, data: { minLoanAmount: tier.min, maxLoanAmount: tier.max, status: "ACTIVE" } })
+    : await prisma.creditCommittee.create({ data: { committeeName, branchId: loan.branchId, isHeadOfficeCommittee: false, minLoanAmount: tier.min, maxLoanAmount: tier.max } });
+  await prisma.creditCommitteeMember.deleteMany({ where: { creditCommitteeId: configuredCommittee.id } });
+  await prisma.creditCommitteeMember.createMany({ data: tier.roles.map((roleKey, index) => ({ creditCommitteeId: configuredCommittee!.id, userId: byRole.get(roleKey)!, committeeRole: committeeRoleLabel(roleKey), approvalSequence: index + 1, isRequired: true })) });
+
   const committee = await prisma.creditCommittee.findFirst({
     where: {
+      id: configuredCommittee.id,
       status: "ACTIVE",
       minLoanAmount: { lte: new Prisma.Decimal(amount) },
       AND: [
@@ -155,11 +171,11 @@ export async function routeToCreditCommittee(loanApplicationId: number, actorId:
 
   for (const member of committee.members) {
     const exists = await prisma.creditCommitteeReview.findFirst({
-      where: { loanApplicationId, creditCommitteeId: committee.id, reviewerId: member.userId }
+      where: { loanApplicationId, creditCommitteeId: committee.id, committeeRole: member.committeeRole }
     });
     if (!exists) {
       await prisma.creditCommitteeReview.create({
-        data: { loanApplicationId, creditCommitteeId: committee.id, reviewerId: member.userId, decision: "PENDING" }
+        data: { loanApplicationId, creditCommitteeId: committee.id, reviewerId: member.userId, committeeRole: member.committeeRole, approvalSequence: member.approvalSequence, decision: "PENDING" }
       });
     }
   }
