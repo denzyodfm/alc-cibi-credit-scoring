@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { canAccessBranch, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { computeScorecard, routeToCreditCommittee } from "@/lib/scorecard";
+import { computeScorecard } from "@/lib/scorecard";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -66,9 +66,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return scorecard;
   });
 
-  if (computed.result === "FOR_CREDIT_COMMITTEE" || computed.result === "PROCEED") {
-    await routeToCreditCommittee(loanApplicationId, user.id);
-  }
   await audit({ userId: user.id, action: "Scorecard update", entityType: "CreditScorecard", entityId: saved.id, newValue: computed });
   return NextResponse.json(computed);
 }

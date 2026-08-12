@@ -4,7 +4,7 @@ import { canAccessAllBranches, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { money } from "@/lib/format";
 
-const statuses = ["DRAFT", "CI_BI_IN_PROGRESS", "FOR_CREDIT_COMMITTEE", "AUTO_DENIED", "APPROVED", "DENIED"] as const;
+const statuses = ["DRAFT", "CI_BI_IN_PROGRESS", "FOR_ENDORSEMENT", "ENDORSED", "FOR_CREDIT_COMMITTEE", "AUTO_DENIED", "APPROVED", "DENIED"] as const;
 
 export default async function DashboardPage() {
   const user = await requireUser();

@@ -608,7 +608,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
     }
     const autoDq = rows.filter((row) => row.autoDqIfZero && row.included && row.score === 0);
     const overall = Object.values(categoryScores).reduce((sum, value) => sum + value, 0);
-    const result = autoDq.length ? "AUTO_DENIED" : overall >= 80 ? "PROCEED" : overall >= 65 ? "FOR_CREDIT_COMMITTEE" : "DENIED";
+    const result = autoDq.length ? "AUTO_DENIED" : overall >= 80 ? "PROCEED" : overall >= 65 ? "FOR_ENDORSEMENT" : "DENIED";
     return { categoryScores, overall, result, autoDq };
   }, [criteria, scoreItems, settings]);
 
@@ -628,6 +628,8 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
         dateOfCi: form.get("dateOfCi"),
         loanProduct: form.get("loanProduct"),
         loanPurpose: form.get("loanPurpose"),
+        loanPurposeCategory: form.get("loanPurposeCategory"),
+        aoClientRemarks: form.get("aoClientRemarks"),
         amountApplied: form.get("amountApplied"),
         desiredTerms: form.get("desiredTerms"),
         proposedAmortization: form.get("proposedAmortization"),
@@ -776,7 +778,18 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
               </div>
               <Select name="desiredTerms" label="Desired terms" defaultValue={loan.desiredTerms} options={termOptions} />
               <Field name="proposedAmortization" label="Proposed amortization" money defaultValue={loan.proposedAmortization} />
-              <TextArea name="loanPurpose" label="Loan purpose" defaultValue={loan.loanPurpose} />
+              <div className="md:col-span-3">
+                <LabelText>Loan purpose</LabelText>
+                <div className="mt-1 flex flex-wrap gap-4 rounded-md border border-slate-300 bg-white px-3 py-2">
+                  {["Agricultural", "Business", "Personal"].map((purpose) => (
+                    <label key={purpose} className="flex items-center gap-2 text-sm font-medium">
+                      <input type="radio" name="loanPurposeCategory" value={purpose} defaultChecked={loan.loanPurposeCategory === purpose} /> {purpose}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <TextArea name="loanPurpose" label="Specify purpose" defaultValue={loan.loanPurpose} />
+              <TextArea name="aoClientRemarks" label="Account Officer remarks for client" defaultValue={loan.aoClientRemarks} />
           </Grid>
         </div>
         <div className={tab === "Applicant" ? undefined : "hidden"}>
@@ -1265,7 +1278,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
       <div className="no-print mt-4 flex flex-wrap gap-2">
         <button className="btn-primary" disabled={saving} type="submit"><Save size={16} /> Save CI/BI details</button>
         <button className="btn-secondary" disabled={saving} type="button" onClick={saveScorecard}><Calculator size={16} /> Save scorecard</button>
-        <button className="btn-secondary" disabled={saving} type="button" onClick={async () => { await fetch(`/api/loans/${loan.id}/submit`, { method: "POST" }); router.refresh(); }}><Send size={16} /> Route to committee</button>
+        <button className="btn-secondary" disabled={saving} type="button" onClick={async () => { await fetch(`/api/loans/${loan.id}/submit`, { method: "POST" }); router.refresh(); }}><Send size={16} /> Send for endorsement</button>
         <Link className="btn-secondary" href={`/reports/${loan.id}`}><Printer size={16} /> Printable report</Link>
       </div>
     </form>

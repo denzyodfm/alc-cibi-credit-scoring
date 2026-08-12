@@ -43,6 +43,8 @@ enum LoanStatus {
   CI_BI_IN_PROGRESS
   FOR_SCORECARD
   AUTO_DENIED
+  FOR_ENDORSEMENT
+  ENDORSED
   FOR_CREDIT_COMMITTEE
   PROCEED
   APPROVED
@@ -53,6 +55,7 @@ enum LoanStatus {
 enum ScorecardResult {
   AUTO_DENIED
   DENIED
+  FOR_ENDORSEMENT
   FOR_CREDIT_COMMITTEE
   PROCEED
 }
@@ -79,18 +82,18 @@ enum CommitteeDecision {
 }
 
 model Branch {
-  id                Int                       @id @default(autoincrement())
-  branchCode        String                    @unique @map("branch_code") @db.VarChar(20)
-  branchName        String                    @map("branch_name") @db.VarChar(120)
-  branchAddress     String?                   @map("branch_address") @db.VarChar(255)
-  isHeadOffice      Boolean                   @default(false) @map("is_head_office")
-  status            BranchStatus              @default(ACTIVE)
-  createdAt         DateTime                  @default(now()) @map("created_at")
-  updatedAt         DateTime                  @updatedAt @map("updated_at")
-  users             User[]
-  assignments       BranchStaffAssignment[]
-  loanApplications  LoanApplication[]
-  creditCommittees  CreditCommittee[]
+  id               Int                     @id @default(autoincrement())
+  branchCode       String                  @unique @map("branch_code") @db.VarChar(20)
+  branchName       String                  @map("branch_name") @db.VarChar(120)
+  branchAddress    String?                 @map("branch_address") @db.VarChar(255)
+  isHeadOffice     Boolean                 @default(false) @map("is_head_office")
+  status           BranchStatus            @default(ACTIVE)
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  users            User[]
+  assignments      BranchStaffAssignment[]
+  loanApplications LoanApplication[]
+  creditCommittees CreditCommittee[]
 
   @@map("branches")
 }
@@ -114,64 +117,75 @@ model BranchStaffAssignment {
 }
 
 model User {
-  id                    Int                       @id @default(autoincrement())
-  employeeNo            String                    @unique @map("employee_no") @db.VarChar(50)
-  fullName              String                    @map("full_name") @db.VarChar(160)
-  email                 String                    @unique @db.VarChar(160)
-  username              String                    @unique @db.VarChar(80)
-  passwordHash          String                    @map("password_hash") @db.VarChar(255)
-  branchId              Int                       @map("branch_id")
-  role                  UserRole
-  status                UserStatus                @default(ACTIVE)
-  createdAt             DateTime                  @default(now()) @map("created_at")
-  updatedAt             DateTime                  @updatedAt @map("updated_at")
-  branch                Branch                    @relation(fields: [branchId], references: [id])
-  assignments           BranchStaffAssignment[]
-  loanApplications      LoanApplication[]         @relation("LoanOfficer")
-  createdApplications   LoanApplication[]         @relation("ApplicationCreator")
-  scoredScorecards      CreditScorecard[]         @relation("ScorecardScorer")
-  committeeMemberships  CreditCommitteeMember[]
-  committeeReviews      CreditCommitteeReview[]
-  auditLogs             AuditLog[]
+  id                   Int                     @id @default(autoincrement())
+  employeeNo           String                  @unique @map("employee_no") @db.VarChar(50)
+  fullName             String                  @map("full_name") @db.VarChar(160)
+  email                String                  @unique @db.VarChar(160)
+  username             String                  @unique @db.VarChar(80)
+  passwordHash         String                  @map("password_hash") @db.VarChar(255)
+  branchId             Int                     @map("branch_id")
+  role                 UserRole
+  status               UserStatus              @default(ACTIVE)
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+  branch               Branch                  @relation(fields: [branchId], references: [id])
+  assignments          BranchStaffAssignment[]
+  loanApplications     LoanApplication[]       @relation("LoanOfficer")
+  createdApplications  LoanApplication[]       @relation("ApplicationCreator")
+  scoredScorecards     CreditScorecard[]       @relation("ScorecardScorer")
+  committeeMemberships CreditCommitteeMember[]
+  committeeReviews     CreditCommitteeReview[]
+  endorsedApplications LoanApplication[]       @relation("LoanEndorser")
+  auditLogs            AuditLog[]
 
   @@index([branchId])
   @@map("users")
 }
 
 model LoanApplication {
-  id                 Int                       @id @default(autoincrement())
-  applicationNo      String                    @unique @map("application_no") @db.VarChar(40)
-  ciFormNo           String?                   @unique @map("ci_form_no") @db.VarChar(40)
-  dateOfCi           DateTime?                 @map("date_of_ci")
-  loanOfficerId      Int                       @map("loan_officer_id")
-  branchId           Int                       @map("branch_id")
-  branchCode         String                    @map("branch_code") @db.VarChar(20)
-  loanPurpose        String?                   @map("loan_purpose") @db.Text
-  loanProduct        String?                   @map("loan_product") @db.VarChar(120)
-  amountApplied      Decimal                   @default(0) @map("amount_applied") @db.Decimal(14, 2)
-  desiredTerms       String?                   @map("desired_terms") @db.VarChar(120)
+  id                   Int                     @id @default(autoincrement())
+  applicationNo        String                  @unique @map("application_no") @db.VarChar(40)
+  ciFormNo             String?                 @unique @map("ci_form_no") @db.VarChar(40)
+  dateOfCi             DateTime?               @map("date_of_ci")
+  loanOfficerId        Int                     @map("loan_officer_id")
+  branchId             Int                     @map("branch_id")
+  branchCode           String                  @map("branch_code") @db.VarChar(20)
+  loanPurpose          String?                 @map("loan_purpose") @db.Text
+  loanPurposeCategory  String?                 @map("loan_purpose_category") @db.VarChar(40)
+  aoClientRemarks      String?                 @map("ao_client_remarks") @db.Text
+  loanProduct          String?                 @map("loan_product") @db.VarChar(120)
+  amountApplied        Decimal                 @default(0) @map("amount_applied") @db.Decimal(14, 2)
+  desiredTerms         String?                 @map("desired_terms") @db.VarChar(120)
   proposedAmortization Decimal?                @map("proposed_amortization") @db.Decimal(14, 2)
-  status             LoanStatus                @default(DRAFT)
-  createdBy          Int                       @map("created_by")
-  createdAt          DateTime                  @default(now()) @map("created_at")
-  updatedAt          DateTime                  @updatedAt @map("updated_at")
-  branch             Branch                    @relation(fields: [branchId], references: [id])
-  loanOfficer        User                      @relation("LoanOfficer", fields: [loanOfficerId], references: [id])
-  creator            User                      @relation("ApplicationCreator", fields: [createdBy], references: [id])
-  applicantProfile   ApplicantProfile?
-  householdBackground HouseholdBackground?
-  incomeProfile      IncomeProfile?
-  liabilities        ExistingLiability[]
-  references         CharacterReference[]
-  assets             Asset[]
-  collateral         Collateral[]
-  businessContacts   BusinessContact[]
-  cashFlows          CashFlowEntry[]
-  cropProductions    CropProduction[]
-  farmCostItems      FarmCostItem[]
-  attachedProperties AttachedProperty[]
-  scorecard          CreditScorecard?
-  committeeReviews   CreditCommitteeReview[]
+  status               LoanStatus              @default(DRAFT)
+  endorsedBy           Int?                    @map("endorsed_by")
+  endorsedAt           DateTime?               @map("endorsed_at")
+  endorsementCode      String?                 @map("endorsement_code") @db.VarChar(40)
+  endorsementRemarks   String?                 @map("endorsement_remarks") @db.Text
+  createdBy            Int                     @map("created_by")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+  branch               Branch                  @relation(fields: [branchId], references: [id])
+  loanOfficer          User                    @relation("LoanOfficer", fields: [loanOfficerId], references: [id])
+  creator              User                    @relation("ApplicationCreator", fields: [createdBy], references: [id])
+  endorser             User?                   @relation("LoanEndorser", fields: [endorsedBy], references: [id])
+  applicantProfile     ApplicantProfile?
+  householdBackground  HouseholdBackground?
+  incomeProfile        IncomeProfile?
+  liabilities          ExistingLiability[]
+  references           CharacterReference[]
+  assets               Asset[]
+  collateral           Collateral[]
+  businessContacts     BusinessContact[]
+  cashFlows            CashFlowEntry[]
+  cropProductions      CropProduction[]
+  farmCostItems        FarmCostItem[]
+  attachedProperties   AttachedProperty[]
+  scorecard            CreditScorecard?
+  committeeReviews     CreditCommitteeReview[]
+  requirements         LoanRequirement[]
+  sectionRemarks       LoanSectionRemark[]
+  computation          LoanComputation?
 
   @@index([branchId])
   @@index([branchCode])
@@ -181,97 +195,98 @@ model LoanApplication {
   @@index([loanOfficerId])
   @@index([status])
   @@index([dateOfCi])
+  @@index([endorsedBy])
   @@map("loan_applications")
 }
 
 model ApplicantProfile {
-  id                    Int             @id @default(autoincrement())
-  loanApplicationId      Int             @unique @map("loan_application_id")
-  fullName              String           @map("full_name") @db.VarChar(160)
-  lastName              String?          @map("last_name") @db.VarChar(80)
-  firstName             String?          @map("first_name") @db.VarChar(80)
-  middleName            String?          @map("middle_name") @db.VarChar(80)
-  nickname              String?          @db.VarChar(80)
-  placeOfBirth          String?          @map("place_of_birth") @db.VarChar(160)
-  dateOfBirth           DateTime?        @map("date_of_birth")
-  age                   Int?
-  sex                   String?          @db.VarChar(30)
-  civilStatus           String?          @map("civil_status") @db.VarChar(50)
-  currentAddress        String?          @map("current_address") @db.Text
-  addressRegion         String?          @map("address_region") @db.VarChar(120)
-  addressProvince       String?          @map("address_province") @db.VarChar(120)
-  addressCityMunicipality String?        @map("address_city_municipality") @db.VarChar(120)
-  addressBarangay       String?          @map("address_barangay") @db.VarChar(160)
-  addressStreet         String?          @map("address_street") @db.VarChar(255)
-  yearsAtAddress        Decimal?         @map("years_at_address") @db.Decimal(5, 2)
-  permanentSameAsCurrent Boolean         @default(false) @map("permanent_same_as_current")
-  permanentAddress      String?          @map("permanent_address") @db.Text
-  permanentAddressRegion String?         @map("permanent_address_region") @db.VarChar(120)
-  permanentAddressProvince String?       @map("permanent_address_province") @db.VarChar(120)
-  permanentAddressCityMunicipality String? @map("permanent_address_city_municipality") @db.VarChar(120)
-  permanentAddressBarangay String?       @map("permanent_address_barangay") @db.VarChar(160)
-  permanentAddressStreet String?         @map("permanent_address_street") @db.VarChar(255)
-  residenceType         String?          @map("residence_type") @db.VarChar(80)
-  monthlyRentOrMortgage Decimal?         @map("monthly_rent_or_mortgage") @db.Decimal(14, 2)
-  contactNumber         String?          @map("contact_number") @db.VarChar(60)
-  alternateContact      String?          @map("alternate_contact") @db.VarChar(60)
-  email                 String?          @db.VarChar(160)
-  alternateEmail        String?          @map("alternate_email") @db.VarChar(160)
-  gcashNumber           String?          @map("gcash_number") @db.VarChar(60)
-  facebook              String?          @db.VarChar(160)
-  twitter               String?          @db.VarChar(160)
-  tiktok                String?          @db.VarChar(160)
-  instagram             String?          @db.VarChar(160)
-  tinNo                 String?          @map("tin_no") @db.VarChar(80)
-  sssId                 String?          @map("sss_id") @db.VarChar(80)
-  gsisId                String?          @map("gsis_id") @db.VarChar(80)
-  philhealthNo          String?          @map("philhealth_no") @db.VarChar(80)
-  pagibigNo             String?          @map("pagibig_no") @db.VarChar(80)
-  driversLicense        String?          @map("drivers_license") @db.VarChar(80)
-  photoDataUrl          String?          @map("photo_data_url") @db.LongText
-  photoMimeType         String?          @map("photo_mime_type") @db.VarChar(40)
-  createdAt             DateTime         @default(now()) @map("created_at")
-  updatedAt             DateTime         @updatedAt @map("updated_at")
-  loanApplication       LoanApplication  @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  id                               Int             @id @default(autoincrement())
+  loanApplicationId                Int             @unique @map("loan_application_id")
+  fullName                         String          @map("full_name") @db.VarChar(160)
+  lastName                         String?         @map("last_name") @db.VarChar(80)
+  firstName                        String?         @map("first_name") @db.VarChar(80)
+  middleName                       String?         @map("middle_name") @db.VarChar(80)
+  nickname                         String?         @db.VarChar(80)
+  placeOfBirth                     String?         @map("place_of_birth") @db.VarChar(160)
+  dateOfBirth                      DateTime?       @map("date_of_birth")
+  age                              Int?
+  sex                              String?         @db.VarChar(30)
+  civilStatus                      String?         @map("civil_status") @db.VarChar(50)
+  currentAddress                   String?         @map("current_address") @db.Text
+  addressRegion                    String?         @map("address_region") @db.VarChar(120)
+  addressProvince                  String?         @map("address_province") @db.VarChar(120)
+  addressCityMunicipality          String?         @map("address_city_municipality") @db.VarChar(120)
+  addressBarangay                  String?         @map("address_barangay") @db.VarChar(160)
+  addressStreet                    String?         @map("address_street") @db.VarChar(255)
+  yearsAtAddress                   Decimal?        @map("years_at_address") @db.Decimal(5, 2)
+  permanentSameAsCurrent           Boolean         @default(false) @map("permanent_same_as_current")
+  permanentAddress                 String?         @map("permanent_address") @db.Text
+  permanentAddressRegion           String?         @map("permanent_address_region") @db.VarChar(120)
+  permanentAddressProvince         String?         @map("permanent_address_province") @db.VarChar(120)
+  permanentAddressCityMunicipality String?         @map("permanent_address_city_municipality") @db.VarChar(120)
+  permanentAddressBarangay         String?         @map("permanent_address_barangay") @db.VarChar(160)
+  permanentAddressStreet           String?         @map("permanent_address_street") @db.VarChar(255)
+  residenceType                    String?         @map("residence_type") @db.VarChar(80)
+  monthlyRentOrMortgage            Decimal?        @map("monthly_rent_or_mortgage") @db.Decimal(14, 2)
+  contactNumber                    String?         @map("contact_number") @db.VarChar(60)
+  alternateContact                 String?         @map("alternate_contact") @db.VarChar(60)
+  email                            String?         @db.VarChar(160)
+  alternateEmail                   String?         @map("alternate_email") @db.VarChar(160)
+  gcashNumber                      String?         @map("gcash_number") @db.VarChar(60)
+  facebook                         String?         @db.VarChar(160)
+  twitter                          String?         @db.VarChar(160)
+  tiktok                           String?         @db.VarChar(160)
+  instagram                        String?         @db.VarChar(160)
+  tinNo                            String?         @map("tin_no") @db.VarChar(80)
+  sssId                            String?         @map("sss_id") @db.VarChar(80)
+  gsisId                           String?         @map("gsis_id") @db.VarChar(80)
+  philhealthNo                     String?         @map("philhealth_no") @db.VarChar(80)
+  pagibigNo                        String?         @map("pagibig_no") @db.VarChar(80)
+  driversLicense                   String?         @map("drivers_license") @db.VarChar(80)
+  photoDataUrl                     String?         @map("photo_data_url") @db.LongText
+  photoMimeType                    String?         @map("photo_mime_type") @db.VarChar(40)
+  createdAt                        DateTime        @default(now()) @map("created_at")
+  updatedAt                        DateTime        @updatedAt @map("updated_at")
+  loanApplication                  LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
 
   @@index([loanApplicationId])
   @@map("applicant_profiles")
 }
 
 model HouseholdBackground {
-  id                         Int             @id @default(autoincrement())
-  loanApplicationId           Int             @unique @map("loan_application_id")
-  spousePartnerName           String?         @map("spouse_partner_name") @db.VarChar(160)
-  spouseNickname              String?         @map("spouse_nickname") @db.VarChar(80)
-  spouseCurrentAddress        String?         @map("spouse_current_address") @db.Text
-  spouseYearsAtAddress        Decimal?        @map("spouse_years_at_address") @db.Decimal(5, 2)
-  spouseOccupationEmployer    String?         @map("spouse_occupation_employer") @db.VarChar(160)
-  spouseEmployerAddress       String?         @map("spouse_employer_address") @db.Text
-  spouseMonthlyIncome         Decimal?        @map("spouse_monthly_income") @db.Decimal(14, 2)
-  numberOfDependents          Int?            @map("number_of_dependents")
-  dependentsUnder18           Int?            @map("dependents_under_18")
-  fatherName                  String?         @map("father_name") @db.VarChar(160)
-  fatherDob                   DateTime?       @map("father_dob") @db.Date
-  fatherDod                   DateTime?       @map("father_dod") @db.Date
-  fatherAge                   Int?            @map("father_age")
-  fatherOccupation            String?         @map("father_occupation") @db.VarChar(160)
-  motherName                  String?         @map("mother_name") @db.VarChar(160)
-  motherDob                   DateTime?       @map("mother_dob") @db.Date
-  motherDod                   DateTime?       @map("mother_dod") @db.Date
-  motherAge                   Int?            @map("mother_age")
-  motherOccupation            String?         @map("mother_occupation") @db.VarChar(160)
-  parentAddress               String?         @map("parent_address") @db.Text
-  isPrimaryIncomeEarner       Boolean?        @map("is_primary_income_earner")
-  createdAt                   DateTime        @default(now()) @map("created_at")
-  updatedAt                   DateTime        @updatedAt @map("updated_at")
-  loanApplication             LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  id                       Int             @id @default(autoincrement())
+  loanApplicationId        Int             @unique @map("loan_application_id")
+  spousePartnerName        String?         @map("spouse_partner_name") @db.VarChar(160)
+  spouseNickname           String?         @map("spouse_nickname") @db.VarChar(80)
+  spouseCurrentAddress     String?         @map("spouse_current_address") @db.Text
+  spouseYearsAtAddress     Decimal?        @map("spouse_years_at_address") @db.Decimal(5, 2)
+  spouseOccupationEmployer String?         @map("spouse_occupation_employer") @db.VarChar(160)
+  spouseEmployerAddress    String?         @map("spouse_employer_address") @db.Text
+  spouseMonthlyIncome      Decimal?        @map("spouse_monthly_income") @db.Decimal(14, 2)
+  numberOfDependents       Int?            @map("number_of_dependents")
+  dependentsUnder18        Int?            @map("dependents_under_18")
+  fatherName               String?         @map("father_name") @db.VarChar(160)
+  fatherDob                DateTime?       @map("father_dob") @db.Date
+  fatherDod                DateTime?       @map("father_dod") @db.Date
+  fatherAge                Int?            @map("father_age")
+  fatherOccupation         String?         @map("father_occupation") @db.VarChar(160)
+  motherName               String?         @map("mother_name") @db.VarChar(160)
+  motherDob                DateTime?       @map("mother_dob") @db.Date
+  motherDod                DateTime?       @map("mother_dod") @db.Date
+  motherAge                Int?            @map("mother_age")
+  motherOccupation         String?         @map("mother_occupation") @db.VarChar(160)
+  parentAddress            String?         @map("parent_address") @db.Text
+  isPrimaryIncomeEarner    Boolean?        @map("is_primary_income_earner")
+  createdAt                DateTime        @default(now()) @map("created_at")
+  updatedAt                DateTime        @updatedAt @map("updated_at")
+  loanApplication          LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
 
   @@index([loanApplicationId])
   @@map("household_backgrounds")
 }
 
 model IncomeProfile {
-  id                          Int             @id @default(autoincrement())
+  id                           Int             @id @default(autoincrement())
   loanApplicationId            Int             @unique @map("loan_application_id")
   employmentStatus             String?         @map("employment_status") @db.VarChar(160)
   employmentStatusOther        String?         @map("employment_status_other") @db.VarChar(160)
@@ -631,97 +646,97 @@ model ScorecardSetting {
 }
 
 model ScorecardCriterion {
-  id               Int         @id @default(autoincrement())
-  category         String      @db.VarChar(40)
-  code             String      @unique @db.VarChar(10)
-  name             String      @db.VarChar(160)
-  questionGuide    String      @map("question_guide") @db.Text
-  scoreDescriptions Json       @map("score_descriptions")
-  naTreatment      NaTreatment @map("na_treatment")
-  autoDqIfZero     Boolean     @default(false) @map("auto_dq_if_zero")
-  sortOrder        Int         @map("sort_order")
-  isActive         Boolean     @default(true) @map("is_active")
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
+  id                Int         @id @default(autoincrement())
+  category          String      @db.VarChar(40)
+  code              String      @unique @db.VarChar(10)
+  name              String      @db.VarChar(160)
+  questionGuide     String      @map("question_guide") @db.Text
+  scoreDescriptions Json        @map("score_descriptions")
+  naTreatment       NaTreatment @map("na_treatment")
+  autoDqIfZero      Boolean     @default(false) @map("auto_dq_if_zero")
+  sortOrder         Int         @map("sort_order")
+  isActive          Boolean     @default(true) @map("is_active")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
 
   @@index([category])
   @@map("scorecard_criteria")
 }
 
 model CreditScorecard {
-  id               Int                   @id @default(autoincrement())
-  loanApplicationId Int                  @unique @map("loan_application_id")
-  characterScore   Decimal              @default(0) @map("character_score") @db.Decimal(6, 2)
-  capacityScore    Decimal              @default(0) @map("capacity_score") @db.Decimal(6, 2)
-  capitalScore     Decimal              @default(0) @map("capital_score") @db.Decimal(6, 2)
-  collateralScore  Decimal              @default(0) @map("collateral_score") @db.Decimal(6, 2)
-  conditionsScore  Decimal              @default(0) @map("conditions_score") @db.Decimal(6, 2)
-  overallScore     Decimal              @default(0) @map("overall_score") @db.Decimal(6, 2)
-  result           ScorecardResult
-  autoDqTriggered  Boolean              @default(false) @map("auto_dq_triggered")
-  autoDqReason     String?              @map("auto_dq_reason") @db.Text
-  recommendationNotes String?           @map("recommendation_notes") @db.Text
-  scoredBy         Int?                  @map("scored_by")
-  scoredAt         DateTime?             @map("scored_at")
-  createdAt        DateTime              @default(now()) @map("created_at")
-  updatedAt        DateTime              @updatedAt @map("updated_at")
-  loanApplication  LoanApplication       @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
-  scorer           User?                 @relation("ScorecardScorer", fields: [scoredBy], references: [id])
-  items            CreditScorecardItem[]
+  id                  Int                   @id @default(autoincrement())
+  loanApplicationId   Int                   @unique @map("loan_application_id")
+  characterScore      Decimal               @default(0) @map("character_score") @db.Decimal(6, 2)
+  capacityScore       Decimal               @default(0) @map("capacity_score") @db.Decimal(6, 2)
+  capitalScore        Decimal               @default(0) @map("capital_score") @db.Decimal(6, 2)
+  collateralScore     Decimal               @default(0) @map("collateral_score") @db.Decimal(6, 2)
+  conditionsScore     Decimal               @default(0) @map("conditions_score") @db.Decimal(6, 2)
+  overallScore        Decimal               @default(0) @map("overall_score") @db.Decimal(6, 2)
+  result              ScorecardResult
+  autoDqTriggered     Boolean               @default(false) @map("auto_dq_triggered")
+  autoDqReason        String?               @map("auto_dq_reason") @db.Text
+  recommendationNotes String?               @map("recommendation_notes") @db.Text
+  scoredBy            Int?                  @map("scored_by")
+  scoredAt            DateTime?             @map("scored_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  loanApplication     LoanApplication       @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  scorer              User?                 @relation("ScorecardScorer", fields: [scoredBy], references: [id])
+  items               CreditScorecardItem[]
 
   @@index([loanApplicationId])
   @@map("credit_scorecards")
 }
 
 model CreditScorecardItem {
-  id                Int              @id @default(autoincrement())
-  scorecardId       Int              @map("scorecard_id")
-  category          String           @db.VarChar(40)
-  subCriterionCode  String           @map("sub_criterion_code") @db.VarChar(10)
-  subCriterionName  String           @map("sub_criterion_name") @db.VarChar(160)
-  score             Int
-  isNa              Boolean          @default(false) @map("is_na")
-  naTreatment       NaTreatment      @map("na_treatment")
-  weightedIncluded  Boolean          @default(true) @map("weighted_included")
-  autoDqIfZero      Boolean          @default(false) @map("auto_dq_if_zero")
-  remarks           String?          @db.Text
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-  scorecard         CreditScorecard  @relation(fields: [scorecardId], references: [id], onDelete: Cascade)
+  id               Int             @id @default(autoincrement())
+  scorecardId      Int             @map("scorecard_id")
+  category         String          @db.VarChar(40)
+  subCriterionCode String          @map("sub_criterion_code") @db.VarChar(10)
+  subCriterionName String          @map("sub_criterion_name") @db.VarChar(160)
+  score            Int
+  isNa             Boolean         @default(false) @map("is_na")
+  naTreatment      NaTreatment     @map("na_treatment")
+  weightedIncluded Boolean         @default(true) @map("weighted_included")
+  autoDqIfZero     Boolean         @default(false) @map("auto_dq_if_zero")
+  remarks          String?         @db.Text
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  scorecard        CreditScorecard @relation(fields: [scorecardId], references: [id], onDelete: Cascade)
 
   @@index([scorecardId])
   @@map("credit_scorecard_items")
 }
 
 model CreditCommittee {
-  id                    Int                      @id @default(autoincrement())
-  committeeName          String                   @map("committee_name") @db.VarChar(160)
-  branchId               Int?                     @map("branch_id")
-  isHeadOfficeCommittee  Boolean                  @default(false) @map("is_head_office_committee")
-  minLoanAmount          Decimal                  @map("min_loan_amount") @db.Decimal(14, 2)
-  maxLoanAmount          Decimal?                 @map("max_loan_amount") @db.Decimal(14, 2)
-  status                 CommitteeStatus          @default(ACTIVE)
-  createdAt              DateTime                 @default(now()) @map("created_at")
-  updatedAt              DateTime                 @updatedAt @map("updated_at")
-  branch                 Branch?                  @relation(fields: [branchId], references: [id])
-  members                CreditCommitteeMember[]
-  reviews                CreditCommitteeReview[]
+  id                    Int                     @id @default(autoincrement())
+  committeeName         String                  @map("committee_name") @db.VarChar(160)
+  branchId              Int?                    @map("branch_id")
+  isHeadOfficeCommittee Boolean                 @default(false) @map("is_head_office_committee")
+  minLoanAmount         Decimal                 @map("min_loan_amount") @db.Decimal(14, 2)
+  maxLoanAmount         Decimal?                @map("max_loan_amount") @db.Decimal(14, 2)
+  status                CommitteeStatus         @default(ACTIVE)
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+  branch                Branch?                 @relation(fields: [branchId], references: [id])
+  members               CreditCommitteeMember[]
+  reviews               CreditCommitteeReview[]
 
   @@index([branchId])
   @@map("credit_committees")
 }
 
 model CreditCommitteeMember {
-  id                Int              @id @default(autoincrement())
-  creditCommitteeId Int              @map("credit_committee_id")
-  userId            Int              @map("user_id")
-  committeeRole     String           @map("committee_role") @db.VarChar(80)
-  approvalSequence  Int              @default(1) @map("approval_sequence")
-  isRequired        Boolean          @default(true) @map("is_required")
-  createdAt         DateTime         @default(now()) @map("created_at")
-  updatedAt         DateTime         @updatedAt @map("updated_at")
-  creditCommittee   CreditCommittee  @relation(fields: [creditCommitteeId], references: [id], onDelete: Cascade)
-  user              User             @relation(fields: [userId], references: [id])
+  id                Int             @id @default(autoincrement())
+  creditCommitteeId Int             @map("credit_committee_id")
+  userId            Int             @map("user_id")
+  committeeRole     String          @map("committee_role") @db.VarChar(80)
+  approvalSequence  Int             @default(1) @map("approval_sequence")
+  isRequired        Boolean         @default(true) @map("is_required")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  creditCommittee   CreditCommittee @relation(fields: [creditCommitteeId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id])
 
   @@index([creditCommitteeId])
   @@index([userId])
@@ -729,23 +744,83 @@ model CreditCommitteeMember {
 }
 
 model CreditCommitteeReview {
-  id                Int                @id @default(autoincrement())
-  loanApplicationId Int                @map("loan_application_id")
-  creditCommitteeId Int                @map("credit_committee_id")
-  reviewerId        Int                @map("reviewer_id")
-  decision          CommitteeDecision  @default(PENDING)
-  remarks           String?            @db.Text
-  reviewedAt        DateTime?          @map("reviewed_at")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  loanApplication   LoanApplication    @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
-  creditCommittee   CreditCommittee    @relation(fields: [creditCommitteeId], references: [id])
-  reviewer          User               @relation(fields: [reviewerId], references: [id])
+  id                Int               @id @default(autoincrement())
+  loanApplicationId Int               @map("loan_application_id")
+  creditCommitteeId Int               @map("credit_committee_id")
+  reviewerId        Int               @map("reviewer_id")
+  decision          CommitteeDecision @default(PENDING)
+  remarks           String?           @db.Text
+  approvalCode      String?           @map("approval_code") @db.VarChar(40)
+  recommendedAmount Decimal?          @map("recommended_amount") @db.Decimal(14, 2)
+  recommendedTerms  Int?              @map("recommended_terms")
+  reviewedAt        DateTime?         @map("reviewed_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  loanApplication   LoanApplication   @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+  creditCommittee   CreditCommittee   @relation(fields: [creditCommitteeId], references: [id])
+  reviewer          User              @relation(fields: [reviewerId], references: [id])
 
   @@index([loanApplicationId])
   @@index([creditCommitteeId])
   @@index([reviewerId])
   @@map("credit_committee_reviews")
+}
+
+model LoanRequirement {
+  id                Int             @id @default(autoincrement())
+  loanApplicationId Int             @map("loan_application_id")
+  requirementType   String          @map("requirement_type") @db.VarChar(80)
+  label             String          @db.VarChar(160)
+  status            String          @default("PENDING") @db.VarChar(30)
+  documentDataUrl   String?         @map("document_data_url") @db.LongText
+  documentMimeType  String?         @map("document_mime_type") @db.VarChar(80)
+  fileName          String?         @map("file_name") @db.VarChar(255)
+  details           Json?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([loanApplicationId, requirementType])
+  @@index([loanApplicationId])
+  @@map("loan_requirements")
+}
+
+model LoanSectionRemark {
+  id                Int             @id @default(autoincrement())
+  loanApplicationId Int             @map("loan_application_id")
+  sectionKey        String          @map("section_key") @db.VarChar(50)
+  aoRemarks         String?         @map("ao_remarks") @db.Text
+  committeeRemarks  String?         @map("committee_remarks") @db.Text
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([loanApplicationId, sectionKey])
+  @@index([loanApplicationId])
+  @@map("loan_section_remarks")
+}
+
+model LoanComputation {
+  id                  Int             @id @default(autoincrement())
+  loanApplicationId   Int             @unique @map("loan_application_id")
+  outstandingBalance  Decimal?        @map("outstanding_balance") @db.Decimal(14, 2)
+  recommendedAmount   Decimal?        @map("recommended_amount") @db.Decimal(14, 2)
+  interestRate        Decimal?        @map("interest_rate") @db.Decimal(7, 3)
+  serviceFee          Decimal?        @map("service_fee") @db.Decimal(14, 2)
+  insurance           Decimal?        @db.Decimal(14, 2)
+  documentaryStamp    Decimal?        @map("documentary_stamp") @db.Decimal(14, 2)
+  notarialFee         Decimal?        @map("notarial_fee") @db.Decimal(14, 2)
+  otherCharges        Decimal?        @map("other_charges") @db.Decimal(14, 2)
+  netProceeds         Decimal?        @map("net_proceeds") @db.Decimal(14, 2)
+  monthlyAmortization Decimal?        @map("monthly_amortization") @db.Decimal(14, 2)
+  collectionType      String?         @map("collection_type") @db.VarChar(80)
+  loanType            String?         @map("loan_type") @db.VarChar(80)
+  sourceOfRepayment   String?         @map("source_of_repayment") @db.VarChar(160)
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  loanApplication     LoanApplication @relation(fields: [loanApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("loan_computations")
 }
 
 model AuditLog {

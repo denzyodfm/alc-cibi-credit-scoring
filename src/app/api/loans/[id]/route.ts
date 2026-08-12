@@ -177,6 +177,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         dateOfCi,
         loanProduct: loanData.loanProduct as string | null,
         loanPurpose: loanData.loanPurpose as string | null,
+        loanPurposeCategory: loanData.loanPurposeCategory as string | null,
+        aoClientRemarks: loanData.aoClientRemarks as string | null,
         desiredTerms: loanData.desiredTerms as string | null,
         amountApplied: Number(loanData.amountApplied ?? existing.amountApplied),
         proposedAmortization: loanData.proposedAmortization === null ? null : Number(loanData.proposedAmortization ?? 0),

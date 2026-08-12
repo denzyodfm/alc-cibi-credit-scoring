@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { LoanEditor } from "@/components/LoanEditor";
 import { PageHeader } from "@/components/PageHeader";
 import { ApplicantPhotoCard } from "@/components/ApplicantPhotoCard";
+import { LoanProcessingWorkspace } from "@/components/LoanProcessingWorkspace";
 import { canAccessAllBranches, canAccessBranch, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getScorecardRules } from "@/lib/scorecard";
@@ -29,7 +30,11 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
       cropProductions: true,
       farmCostItems: true,
       scorecard: { include: { items: true } },
-      committeeReviews: { include: { creditCommittee: true, reviewer: true } }
+      committeeReviews: { include: { creditCommittee: true, reviewer: true } },
+      requirements: true,
+      sectionRemarks: true,
+      computation: true,
+      endorser: true
     }
   });
   if (!loan || !canAccessBranch(user, loan.branchId)) notFound();
@@ -68,6 +73,9 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             residenceTypeOptions={residenceTypeOptions.map((r) => r.label)}
             addressLocations={addressLocations.map((l) => ({ region: l.region, province: l.province, cityMunicipality: l.cityMunicipality, barangay: l.barangay }))}
           />
+          {["ENDORSED", "FOR_CREDIT_COMMITTEE", "APPROVED", "DENIED"].includes(loan.status) ? (
+            <LoanProcessingWorkspace loan={JSON.parse(JSON.stringify(loan))} canReview={user.role !== "ACCOUNT_OFFICER"} />
+          ) : null}
         </div>
         <div className="justify-self-end">
           <ApplicantPhotoCard loanId={loan.id} initialPhoto={loan.applicantProfile?.photoDataUrl} />

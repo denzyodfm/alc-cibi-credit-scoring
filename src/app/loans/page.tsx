@@ -52,7 +52,7 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
         <input className="input" name="q" placeholder="Search applicant, application no., CI form no., branch" defaultValue={q} />
         <select className="input" name="status" defaultValue={status}>
           <option value="">All statuses</option>
-          {["DRAFT", "CI_BI_IN_PROGRESS", "FOR_SCORECARD", "AUTO_DENIED", "FOR_CREDIT_COMMITTEE", "PROCEED", "APPROVED", "DENIED", "CANCELLED"].map((s) => (
+          {["DRAFT", "CI_BI_IN_PROGRESS", "FOR_SCORECARD", "AUTO_DENIED", "FOR_ENDORSEMENT", "ENDORSED", "FOR_CREDIT_COMMITTEE", "PROCEED", "APPROVED", "DENIED", "CANCELLED"].map((s) => (
             <option key={s} value={s}>{s.replaceAll("_", " ")}</option>
           ))}
         </select>

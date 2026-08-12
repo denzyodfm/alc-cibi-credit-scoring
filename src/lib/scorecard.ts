@@ -120,7 +120,7 @@ export async function computeScorecard(inputItems: ScorecardInputItem[]): Promis
   let result: ScorecardResult = "DENIED";
   if (autoDqTriggered) result = "AUTO_DENIED";
   else if (overallScore >= 80) result = "PROCEED";
-  else if (overallScore >= 65) result = "FOR_CREDIT_COMMITTEE";
+  else if (overallScore >= 65) result = "FOR_ENDORSEMENT";
 
   return {
     itemRows,

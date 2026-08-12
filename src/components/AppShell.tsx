@@ -10,7 +10,7 @@ const nav = [
   { href: "/branches", label: "Branches", icon: Building2 },
   { href: "/users", label: "Users", icon: Users },
   { href: "/loans", label: "Applications", icon: FileText },
-  { href: "/committee", label: "Committee", icon: Scale },
+  { href: "/committee", label: "Endorsement & Committee", icon: Scale },
   { href: "/reports", label: "Reports", icon: Printer },
   { href: "/settings", label: "Settings", icon: Settings }
 ];

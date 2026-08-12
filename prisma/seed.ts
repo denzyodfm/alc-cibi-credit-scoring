@@ -391,6 +391,7 @@ async function main() {
   const ao = await prisma.user.findUniqueOrThrow({ where: { username: "aobxu" } });
   const btl = await prisma.user.findUniqueOrThrow({ where: { username: "btlbxu" } });
   const hocc = await prisma.user.findUniqueOrThrow({ where: { username: "hocc" } });
+  const superadmin = await prisma.user.findUniqueOrThrow({ where: { username: "superadmin" } });
 
   await prisma.branchStaffAssignment.createMany({
     data: [
@@ -449,7 +450,7 @@ async function main() {
       branchId: bxu.id,
       isHeadOfficeCommittee: false,
       minLoanAmount: 0,
-      maxLoanAmount: 50000,
+      maxLoanAmount: 30000,
       status: "ACTIVE"
     },
     create: {
@@ -457,33 +458,44 @@ async function main() {
       branchId: bxu.id,
       isHeadOfficeCommittee: false,
       minLoanAmount: 0,
-      maxLoanAmount: 50000
+      maxLoanAmount: 30000
     }
   });
 
-  const hoCommittee = await prisma.creditCommittee.upsert({
+  const midCommittee = await prisma.creditCommittee.upsert({
     where: { id: 2 },
     update: {
-      committeeName: "Head Office Credit Committee",
+      committeeName: "Credit Committee — ₱30,000.01 to ₱90,000",
       branchId: ho.id,
       isHeadOfficeCommittee: true,
-      minLoanAmount: 50000.01,
-      maxLoanAmount: null,
+      minLoanAmount: 30000.01,
+      maxLoanAmount: 90000,
       status: "ACTIVE"
     },
     create: {
-      committeeName: "Head Office Credit Committee",
+      committeeName: "Credit Committee — ₱30,000.01 to ₱90,000",
       branchId: ho.id,
       isHeadOfficeCommittee: true,
-      minLoanAmount: 50000.01,
-      maxLoanAmount: null
+      minLoanAmount: 30000.01,
+      maxLoanAmount: 90000
     }
   });
 
+  const highCommittee = await prisma.creditCommittee.upsert({
+    where: { id: 3 },
+    update: { committeeName: "Credit Committee — Above ₱90,000", branchId: ho.id, isHeadOfficeCommittee: true, minLoanAmount: 90000.01, maxLoanAmount: null, status: "ACTIVE" },
+    create: { committeeName: "Credit Committee — Above ₱90,000", branchId: ho.id, isHeadOfficeCommittee: true, minLoanAmount: 90000.01, maxLoanAmount: null }
+  });
+
+  await prisma.creditCommitteeMember.deleteMany({ where: { creditCommitteeId: { in: [branchCommittee.id, midCommittee.id, highCommittee.id] } } });
   await prisma.creditCommitteeMember.createMany({
     data: [
-      { creditCommitteeId: branchCommittee.id, userId: btl.id, committeeRole: "Chair", approvalSequence: 1, isRequired: true },
-      { creditCommitteeId: hoCommittee.id, userId: hocc.id, committeeRole: "Reviewer", approvalSequence: 1, isRequired: true }
+      { creditCommitteeId: branchCommittee.id, userId: btl.id, committeeRole: "Branch Team Leader", approvalSequence: 1, isRequired: true },
+      { creditCommitteeId: midCommittee.id, userId: btl.id, committeeRole: "Branch Team Leader", approvalSequence: 1, isRequired: true },
+      { creditCommitteeId: midCommittee.id, userId: hocc.id, committeeRole: "Head Office Credit Committee", approvalSequence: 2, isRequired: true },
+      { creditCommitteeId: highCommittee.id, userId: btl.id, committeeRole: "Branch Team Leader", approvalSequence: 1, isRequired: true },
+      { creditCommitteeId: highCommittee.id, userId: hocc.id, committeeRole: "Head Office Credit Committee", approvalSequence: 2, isRequired: true },
+      { creditCommitteeId: highCommittee.id, userId: superadmin.id, committeeRole: "Final Approver", approvalSequence: 3, isRequired: true }
     ],
     skipDuplicates: true
   });
