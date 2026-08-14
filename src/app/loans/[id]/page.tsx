@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { LoanEditor } from "@/components/LoanEditor";
 import { PageHeader } from "@/components/PageHeader";
 import { ApplicantPhotoCard } from "@/components/ApplicantPhotoCard";
+import { ReturnedNotice } from "@/components/ReturnedNotice";
 import { LoanProcessingWorkspace } from "@/components/LoanProcessingWorkspace";
 import { canAccessAllBranches, canAccessBranch, isCommitteeAdministrator, isCommitteeParticipant, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -35,7 +36,8 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
       requirements: true,
       sectionRemarks: true,
       computation: true,
-      endorser: true
+      endorser: true,
+      returner: { select: { fullName: true } }
     }
   });
   if (!loan) notFound();
@@ -70,6 +72,13 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
         <div className="min-w-0">
           <PageHeader title={loan.applicationNo} description={`${loan.branch.branchName} / ${loan.status.replaceAll("_", " ")}`} />
+          <ReturnedNotice
+            returnedFromRole={loan.returnedFromRole}
+            returnedRemarks={loan.returnedRemarks}
+            returnedByName={loan.returner?.fullName}
+            returnedAt={loan.returnedAt}
+            endorsedAt={loan.endorsedAt}
+          />
           <LoanEditor
             loan={JSON.parse(JSON.stringify(loan))}
             criteria={JSON.parse(JSON.stringify(rules.criteria))}

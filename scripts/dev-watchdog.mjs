@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import path from "node:path";
 
 const port = Number(process.env.PORT || 3000);
@@ -13,14 +14,20 @@ const maxFailures = 2;
 const outLogPath = path.resolve(process.cwd(), `.dev-stable-${port}.out.log`);
 const errLogPath = path.resolve(process.cwd(), `.dev-stable-${port}.err.log`);
 
+/** A child that dies sooner than this never really started — treat it as a crash loop, not a restart. */
+const fastExitMs = 15000;
+const maxFastExits = 3;
+
 let child = null;
 let startedAt = 0;
 let failures = 0;
+let fastExits = 0;
 let stopping = false;
 let restartTimer = null;
 let cacheCleared = false;
 let outLog = null;
 let errLog = null;
+let recentStderr = [];
 
 function timestamp() {
   return new Date().toISOString();
@@ -53,6 +60,26 @@ function clearNextCacheOnce() {
   }
 }
 
+/** Resolves to the PID-free truth about the port: another process is already bound to it. */
+function portInUse() {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once("error", (error) => resolve(error.code === "EADDRINUSE"));
+    probe.once("listening", () => probe.close(() => resolve(false)));
+    probe.listen(port, "0.0.0.0");
+  });
+}
+
+function abort(message) {
+  stopping = true;
+  log(`[dev:stable] ${message}`);
+  if (recentStderr.length) {
+    log("[dev:stable] last output from the dev server:");
+    for (const line of recentStderr.slice(-12)) log(`    ${line}`);
+  }
+  process.exit(1);
+}
+
 function scheduleRestart() {
   if (restartTimer) return;
   restartTimer = setTimeout(() => {
@@ -73,10 +100,25 @@ function start() {
   });
   child.stdout.pipe(outLog, { end: false });
   child.stderr.pipe(errLog, { end: false });
+  recentStderr = [];
+  child.stderr.on("data", (chunk) => {
+    recentStderr.push(...String(chunk).split("\n").filter((line) => line.trim()));
+    if (recentStderr.length > 40) recentStderr = recentStderr.slice(-40);
+  });
   child.on("exit", (code, signal) => {
     child = null;
     if (stopping) return;
-    log(`[dev:stable] dev server exited (${signal ?? code}). Restarting...`);
+    const ranFor = Date.now() - startedAt;
+    if (ranFor < fastExitMs) {
+      fastExits += 1;
+      if (fastExits >= maxFastExits) {
+        abort(`dev server exited ${maxFastExits} times within ${fastExitMs / 1000}s of starting — not restarting again.`);
+        return;
+      }
+    } else {
+      fastExits = 0;
+    }
+    log(`[dev:stable] dev server exited (${signal ?? code}) after ${Math.round(ranFor / 1000)}s. Restarting...`);
     scheduleRestart();
   });
 }
@@ -122,6 +164,12 @@ process.on("SIGTERM", () => {
   stopChild();
   process.exit(0);
 });
+
+if (await portInUse()) {
+  log(`[dev:stable] port ${port} is already in use by another process.`);
+  log(`[dev:stable] stop it first, or start this app on a free port: PORT=3005 npm run dev:stable`);
+  process.exit(1);
+}
 
 start();
 setInterval(checkHealth, checkEveryMs);

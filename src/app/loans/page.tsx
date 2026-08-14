@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { LoanCreateForm } from "@/components/LoanCreateForm";
@@ -26,11 +25,22 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
         }
       : {})
   };
-  const loans = await prisma.loanApplication.findMany({
+  // applicantProfile is selected down to fullName on purpose: including the whole relation pulls
+  // photoDataUrl, a base64 image well over 100 KB, for every row this list never displays.
+  const PAGE_LIMIT = 100;
+  const found = await prisma.loanApplication.findMany({
     where,
-    include: { applicantProfile: true, branch: true, loanOfficer: true, scorecard: true },
-    orderBy: { createdAt: "desc" }
+    include: {
+      applicantProfile: { select: { fullName: true } },
+      branch: { select: { branchCode: true } },
+      loanOfficer: { select: { fullName: true } },
+      scorecard: { select: { overallScore: true } }
+    },
+    orderBy: { createdAt: "desc" },
+    take: PAGE_LIMIT + 1
   });
+  const truncated = found.length > PAGE_LIMIT;
+  const loans = truncated ? found.slice(0, PAGE_LIMIT) : found;
   const officers = await prisma.user.findMany({
     where: canAccessAllBranches(user)
       ? { role: "ACCOUNT_OFFICER", status: "ACTIVE" }
@@ -85,13 +95,28 @@ export default async function LoansPage({ searchParams }: { searchParams?: Promi
                 <td className="px-4 py-3">{loan.branch.branchCode}</td>
                 <td className="px-4 py-3">{loan.loanOfficer.fullName}</td>
                 <td className="px-4 py-3">{loan.scorecard ? `${Number(loan.scorecard.overallScore).toFixed(2)}%` : "-"}</td>
-                <td className="px-4 py-3">{loan.status.replaceAll("_", " ")}</td>
+                <td className="px-4 py-3">
+                  {loan.status.replaceAll("_", " ")}
+                  {loan.returnedAt && !loan.endorsedAt ? (
+                    <div
+                      className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900"
+                      title={loan.returnedRemarks ?? undefined}
+                    >
+                      Sent back by {loan.returnedFromRole ?? "committee"}
+                    </div>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3 text-right">{money(loan.amountApplied)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         </div>
+        {truncated ? (
+          <div className="border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
+            Showing the first {PAGE_LIMIT} applications. Use search or the status filter to narrow the list.
+          </div>
+        ) : null}
       </section>
     </AppShell>
   );

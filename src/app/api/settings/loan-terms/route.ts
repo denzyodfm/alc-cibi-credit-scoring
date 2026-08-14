@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { badRequest } from "@/lib/http";
 import { z } from "zod";
 import { canManageSetup, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +18,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await requireUser();
   if (!canManageSetup(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const parsed = schema.parse(await request.json());
+  const __parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!__parsed.success) return badRequest(__parsed.error);
+  const parsed = __parsed.data;
   const count = await prisma.loanTermOption.count();
   const term = await prisma.loanTermOption.create({ data: { months: parsed.months, sortOrder: count } });
   await audit({ userId: user.id, action: "Loan term creation", entityType: "LoanTermOption", entityId: term.id, newValue: term });

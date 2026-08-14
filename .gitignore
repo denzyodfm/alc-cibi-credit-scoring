@@ -1,6 +1,10 @@
 node_modules
 .next
 .env
+
+# Database dumps and a copy of .env — never publish these.
+backups/
+
 dist
 coverage
 *.log

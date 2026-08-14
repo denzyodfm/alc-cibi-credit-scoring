@@ -5,6 +5,7 @@ import { LoanTermManager } from "@/components/LoanTermManager";
 import { LookupOptionManager } from "@/components/LookupOptionManager";
 import { SettingsTabs } from "@/components/SettingsTabs";
 import { CommitteeSettingsManager } from "@/components/CommitteeSettingsManager";
+import { ScorecardWeightManager } from "@/components/ScorecardWeightManager";
 import { BranchMasterManager, PositionManager } from "@/components/MasterTableManager";
 import { canManageSetup, requireUser } from "@/lib/auth";
 import { APPROVAL_TIERS, COMMITTEE_ROLES } from "@/lib/committee-config";
@@ -12,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const [products, terms, sexOptions, civilStatusOptions, residenceTypeOptions, branches, users, positions] = await Promise.all([
+  const [products, terms, sexOptions, civilStatusOptions, residenceTypeOptions, branches, users, positions, scorecardWeights] = await Promise.all([
     prisma.loanProduct.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.loanTermOption.findMany({ orderBy: [{ sortOrder: "asc" }, { months: "asc" }] }),
     prisma.sexOption.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
@@ -20,7 +21,8 @@ export default async function SettingsPage() {
     prisma.residenceTypeOption.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
     prisma.branch.findMany({ where: { status: "ACTIVE" }, include: { committeeAssignments: { include: { user: true } } }, orderBy: [{ isHeadOffice: "desc" }, { branchCode: "asc" }] }),
     prisma.user.findMany({ where: { status: "ACTIVE" }, include: { branch: true }, orderBy: { fullName: "asc" } }),
-    prisma.position.findMany({ include: { _count: { select: { users: true } } }, orderBy: { name: "asc" } })
+    prisma.position.findMany({ include: { _count: { select: { users: true } } }, orderBy: { name: "asc" } }),
+    prisma.scorecardSetting.findMany({ orderBy: { id: "asc" } })
   ]);
   const canManage = canManageSetup(user);
 
@@ -30,6 +32,16 @@ export default async function SettingsPage() {
       {!canManage ? <div className="panel mb-5 p-4 text-sm text-slate-600">Your role can view these settings but cannot add, edit, or delete entries.</div> : null}
       <SettingsTabs
         tabs={[
+          {
+            id: "scorecard-weights",
+            label: "Scorecard Weights",
+            content: (
+              <ScorecardWeightManager
+                weights={scorecardWeights.map((w) => ({ category: w.category, weightPercent: Number(w.weightPercent) }))}
+                canManage={canManage}
+              />
+            )
+          },
           {
             id: "loan-products",
             label: "Loan Products",

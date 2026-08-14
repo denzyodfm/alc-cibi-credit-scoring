@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { badRequest } from "@/lib/http";
 import { z } from "zod";
 import { canAccessAllBranches, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +16,9 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   const user = await requireUser();
-  const parsed = schema.parse(await request.json());
+  const __parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!__parsed.success) return badRequest(__parsed.error);
+  const parsed = __parsed.data;
   const loanOfficerId = user.role === "ACCOUNT_OFFICER" ? user.id : parsed.loanOfficerId;
   const officer = await prisma.user.findUniqueOrThrow({ where: { id: loanOfficerId }, include: { branch: true } });
   const branchId = canAccessAllBranches(user) ? officer.branchId : user.branchId;

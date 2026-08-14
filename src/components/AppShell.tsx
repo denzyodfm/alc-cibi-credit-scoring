@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LogOut, Building2, Users, LayoutDashboard, FileText, Scale, BadgeCheck, Printer, Settings, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, Building2, Users, LayoutDashboard, FileText, Scale, BadgeCheck, Printer, Settings, Menu, X, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { COMMITTEE_STAGE_ORDER, committeeRoleLabel, stageSlug } from "@/lib/committee-config";
 import { SessionUser } from "@/lib/auth";
 
 const nav = [
@@ -11,7 +12,18 @@ const nav = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/loans", label: "Applications", icon: FileText },
   { href: "/endorsement", label: "Endorsement", icon: BadgeCheck, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "ACCOUNT_ASSISTANT"] },
-  { href: "/committee", label: "Credit Committee", icon: Scale, roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "HEAD_OFFICE_CREDIT_COMMITTEE", "BOOKKEEPER", "AREA_TEAM_LEADER", "BRANCH_TEAM_LEADER"] },
+  {
+    href: "/committee/pending",
+    label: "Credit Committee",
+    icon: Scale,
+    roles: ["SUPER_ADMIN", "HEAD_OFFICE_ADMIN", "HEAD_OFFICE_CREDIT_COMMITTEE", "BOOKKEEPER", "AREA_TEAM_LEADER", "BRANCH_TEAM_LEADER"],
+    children: [
+      { href: "/committee/pending", label: "Loans for Approval" },
+      { href: "/committee", label: "Review Board" },
+      ...COMMITTEE_STAGE_ORDER.map((roleKey) => ({ href: `/committee/${stageSlug(roleKey)}`, label: committeeRoleLabel(roleKey) })),
+      { href: "/committee/approved", label: "Approved Loans" }
+    ]
+  },
   { href: "/reports", label: "Reports", icon: Printer },
   { href: "/settings", label: "Settings", icon: Settings }
 ];
@@ -19,6 +31,7 @@ const nav = [
 export function AppShell({ user, children }: { user: SessionUser; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroup, setOpenGroup] = useState("");
 
   return (
     <div className="min-h-screen">
@@ -53,17 +66,46 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
         <nav className="space-y-1 p-3">
           {nav.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => {
             const Icon = item.icon;
+            const expanded = openGroup === item.label;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={`flex items-center rounded-md px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-alc-blue ${collapsed ? "lg:justify-center lg:px-2" : "gap-4"}`}
-                title={collapsed ? item.label : undefined}
-              >
-                <Icon size={23} className="shrink-0 text-alc-blue" />
-                <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
-              </Link>
+              <div key={item.href}>
+                <div className="flex items-center">
+                  <Link
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={`flex flex-1 items-center rounded-md px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-alc-blue ${collapsed ? "lg:justify-center lg:px-2" : "gap-4"}`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon size={23} className="shrink-0 text-alc-blue" />
+                    <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+                  </Link>
+                  {item.children ? (
+                    <button
+                      type="button"
+                      aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+                      aria-expanded={expanded}
+                      className={`rounded-md p-2 text-slate-500 hover:bg-blue-50 ${collapsed ? "lg:hidden" : ""}`}
+                      onClick={() => setOpenGroup(expanded ? "" : item.label)}
+                    >
+                      {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                  ) : null}
+                </div>
+                {item.children && expanded ? (
+                  <div className={`ml-6 space-y-0.5 border-l border-blue-100 pl-3 ${collapsed ? "lg:hidden" : ""}`}>
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={() => setOpen(false)}
+                        className="block rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-blue-50 hover:text-alc-blue"
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </nav>

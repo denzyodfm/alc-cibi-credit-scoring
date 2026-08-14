@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { canAccessBranch, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { computeScorecard } from "@/lib/scorecard";
+import { computeScorecard, deriveScoresForLoan } from "@/lib/scorecard";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -11,7 +11,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const loan = await prisma.loanApplication.findUnique({ where: { id: loanApplicationId } });
   if (!loan || !canAccessBranch(user, loan.branchId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const body = await request.json();
-  const computed = await computeScorecard(body.items ?? []);
+  const derived = await deriveScoresForLoan(loanApplicationId);
+  const computed = await computeScorecard(body.items ?? [], derived);
 
   const saved = await prisma.$transaction(async (tx) => {
     const scorecard = await tx.creditScorecard.upsert({

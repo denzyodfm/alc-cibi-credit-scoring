@@ -70,12 +70,26 @@ export async function requireUser() {
   return user;
 }
 
+/**
+ * Whether the session cookie carries the Secure attribute.
+ *
+ * Browsers drop Secure cookies received over plain HTTP from anything other than localhost, so a
+ * production build served to LAN clients over http:// cannot log anyone in. SESSION_COOKIE_SECURE
+ * lets that deployment opt out; leave it unset (or "true") the moment the app is behind HTTPS.
+ */
+function sessionCookieSecure() {
+  const configured = process.env.SESSION_COOKIE_SECURE;
+  if (configured === "true") return true;
+  if (configured === "false") return false;
+  return process.env.NODE_ENV === "production";
+}
+
 export async function setSessionCookie(token: string) {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: sessionCookieSecure(),
     path: "/",
     maxAge: 60 * 60 * 10
   });

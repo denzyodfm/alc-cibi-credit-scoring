@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { badRequest } from "@/lib/http";
 import { z } from "zod";
 import { canManageSetup, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +17,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const id = Number(rawId);
   const existing = await prisma.loanProduct.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const parsed = schema.parse(await request.json());
+  const __parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!__parsed.success) return badRequest(__parsed.error);
+  const parsed = __parsed.data;
   const product = await prisma.loanProduct.update({ where: { id }, data: parsed });
   await audit({ userId: user.id, action: "Loan product update", entityType: "LoanProduct", entityId: id, oldValue: existing, newValue: product });
   return NextResponse.json(product);

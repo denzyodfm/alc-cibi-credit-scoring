@@ -9,7 +9,7 @@ export default async function ReportsPage() {
   const user = await requireUser();
   const branchWhere = canAccessAllBranches(user) ? {} : { branchId: user.branchId };
   const [loans, branches, officers] = await Promise.all([
-    prisma.loanApplication.findMany({ where: branchWhere, include: { applicantProfile: true, branch: true, loanOfficer: true, scorecard: true }, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.loanApplication.findMany({ where: branchWhere, include: { applicantProfile: { select: { fullName: true } }, branch: true, loanOfficer: true, scorecard: true }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.loanApplication.groupBy({ by: ["branchCode"], where: branchWhere, _count: true, _sum: { amountApplied: true } }),
     prisma.loanApplication.groupBy({ by: ["loanOfficerId"], where: branchWhere, _count: true })
   ]);

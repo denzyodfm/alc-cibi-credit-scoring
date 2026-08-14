@@ -15,7 +15,7 @@ export default async function DashboardPage() {
     prisma.loanApplication.aggregate({ where: branchWhere, _sum: { amountApplied: true } }),
     prisma.loanApplication.findMany({
       where: branchWhere,
-      include: { applicantProfile: true, branch: true, loanOfficer: true },
+      include: { applicantProfile: { select: { fullName: true } }, branch: true, loanOfficer: true },
       orderBy: { createdAt: "desc" },
       take: 8
     })

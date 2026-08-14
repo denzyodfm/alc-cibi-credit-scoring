@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { deriveScores, type DerivedMetric } from "@/lib/credit-metrics";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -375,7 +376,6 @@ const INCOME_FIELD_LIST = INCOME_SECTIONS.flatMap((section) => section.fields);
 /** Multi-select groups post back as repeated form entries and are stored comma-joined. */
 const INCOME_CHECKBOX_FIELDS = new Set(INCOME_FIELD_LIST.filter((field) => field.kind === "checkboxes").map((field) => field.name));
 const INCOME_FIELDS = INCOME_FIELD_LIST.map((field) => field.name);
-const INCOME_DATE_FIELDS = new Set(INCOME_FIELD_LIST.filter((field) => field.kind === "date").map((field) => field.name));
 
 /** Free-text/numeric family background inputs. Parent dates, ages and the primary-earner flag are handled separately. */
 const HOUSEHOLD_FIELDS = [
@@ -394,10 +394,6 @@ const HOUSEHOLD_FIELDS = [
   "motherOccupation",
   "parentAddress"
 ];
-
-function blankRows<T>(rows: T[] | undefined, fallback: T): T[] {
-  return rows?.length ? rows : [fallback];
-}
 
 function withCurrentValue(list: string[], current?: string | null) {
   if (!current || list.includes(current)) return list;
@@ -582,7 +578,10 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
       remarks: existingItems.get(criterion.code)?.remarks ?? ""
     }))
   );
-  const weightByCategory = new Map(settings.map((item) => [item.category, Number(item.weightPercent)]));
+  const weightByCategory = useMemo(() => new Map(settings.map((item) => [item.category, Number(item.weightPercent)])), [settings]);
+
+  // Same pure helpers the server uses on save, so this preview cannot disagree with the stored result.
+  const derived = useMemo(() => deriveScores(loan), [loan]);
 
   const preview = useMemo(() => {
     const itemByCode = new Map(scoreItems.map((item) => [item.code, item]));
@@ -590,6 +589,11 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
       const item = itemByCode.get(criterion.code)!;
       let score = Number(item.score);
       let included = true;
+      const metric = derived[criterion.code];
+      if (metric) {
+        if (metric.excluded) return { ...criterion, score: 0, included: false };
+        if (metric.score !== null) return { ...criterion, score: metric.score, included: true };
+      }
       if (item.isNa && criterion.naTreatment !== "NEVER_NA") {
         if (criterion.naTreatment === "EXCLUDE_RENORMALIZE") {
           included = false;
@@ -610,7 +614,7 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
     const overall = Object.values(categoryScores).reduce((sum, value) => sum + value, 0);
     const result = autoDq.length ? "AUTO_DENIED" : overall >= 80 ? "PROCEED" : overall >= 65 ? "FOR_ENDORSEMENT" : "DENIED";
     return { categoryScores, overall, result, autoDq };
-  }, [criteria, scoreItems, settings]);
+  }, [criteria, scoreItems, weightByCategory, derived]);
 
   async function saveForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1230,14 +1234,32 @@ export function LoanEditor({ loan, criteria, settings, currentUser, officers, lo
                               <p className="mt-1 text-sm text-slate-600">{criterion.questionGuide}</p>
                               {criterion.autoDqIfZero ? <div className="mt-2 text-xs font-semibold text-red-700">Auto-DQ when scored 0</div> : null}
                             </div>
-                            <select className="input w-28" value={item.score} onChange={(e) => replaceScore(index, { score: Number(e.target.value) })}>
-                              {[4, 3, 2, 1, 0].map((score) => <option key={score} value={score}>{score}</option>)}
-                            </select>
+                            {derived[criterion.code] ? (
+                              <DerivedScoreBadge metric={derived[criterion.code]} />
+                            ) : (
+                              <select className="input w-28" value={item.score} onChange={(e) => replaceScore(index, { score: Number(e.target.value) })}>
+                                {[4, 3, 2, 1, 0].map((score) => <option key={score} value={score}>{score}</option>)}
+                              </select>
+                            )}
                           </div>
-                          <div className="mt-2 text-xs text-slate-500">{criterion.scoreDescriptions[String(item.score)]}</div>
+                          <div className="mt-2 text-xs text-slate-500">
+                            {derived[criterion.code]
+                              ? derived[criterion.code].score !== null
+                                ? criterion.scoreDescriptions[String(derived[criterion.code].score)]
+                                : derived[criterion.code].detail
+                              : criterion.scoreDescriptions[String(item.score)]}
+                          </div>
+                          {derived[criterion.code] && derived[criterion.code].ratio !== null ? (
+                            <div className="mt-1 text-xs text-slate-500">{derived[criterion.code].detail}</div>
+                          ) : null}
                           <div className="mt-3 grid gap-2 md:grid-cols-[180px_1fr]">
                             <label className="flex items-center gap-2 text-sm">
-                              <input type="checkbox" checked={item.isNa} disabled={criterion.naTreatment === "NEVER_NA"} onChange={(e) => replaceScore(index, { isNa: e.target.checked })} />
+                              <input
+                                type="checkbox"
+                                checked={derived[criterion.code] ? derived[criterion.code].excluded : item.isNa}
+                                disabled={criterion.naTreatment === "NEVER_NA" || Boolean(derived[criterion.code])}
+                                onChange={(e) => replaceScore(index, { isNa: e.target.checked })}
+                              />
                               N/A ({criterion.naTreatment.replaceAll("_", " ")})
                             </label>
                             <input className="input" placeholder="Remarks" value={item.remarks} onChange={(e) => replaceScore(index, { remarks: e.target.value })} />
@@ -1363,6 +1385,33 @@ function Field({
   );
 }
 
+/** Read-only score for a formula-driven criterion, with the ratio it came from. */
+function DerivedScoreBadge({ metric }: { metric: DerivedMetric }) {
+  if (metric.excluded) {
+    return (
+      <div className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-center">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Excluded</div>
+        <div className="text-xs text-slate-500">renormalised</div>
+      </div>
+    );
+  }
+  if (metric.score === null) {
+    return (
+      <div className="shrink-0 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-center">
+        <div className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pending</div>
+        <div className="text-xs text-amber-700">needs data</div>
+      </div>
+    );
+  }
+  return (
+    <div className="shrink-0 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-center">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Computed</div>
+      <div className="text-lg font-bold tabular-nums text-alc-blue">{metric.score}</div>
+      <div className="text-xs tabular-nums text-slate-600">{metric.ratio!.toFixed(1)}%</div>
+    </div>
+  );
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="mb-2 mt-5 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-700 first:mt-0 md:text-base">{children}</h3>;
 }
@@ -1444,18 +1493,6 @@ function TextArea({ label, name, defaultValue }: { label: string; name: string; 
       <span className="label">{label}</span>
       <textarea className="input mt-1 min-h-24" name={name} defaultValue={defaultValue ?? ""} />
     </label>
-  );
-}
-
-function Rows({ prefix, rows, fields }: { prefix: string; rows: any[]; fields: string[] }) {
-  return (
-    <div className="space-y-4">
-      {rows.map((row, index) => (
-        <div key={index} className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-3">
-          {fields.map((field) => <Field key={field} name={`${prefix}.${index}.${field}`} label={labelize(field)} defaultValue={row[field]} />)}
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -1652,21 +1689,3 @@ function RowTable({
   );
 }
 
-function collectRows(form: FormData, prefix: string, fields: string[]) {
-  const rows: Record<string, any>[] = [];
-  for (let index = 0; index < 10; index++) {
-    const row: Record<string, any> = {};
-    let hasValue = false;
-    for (const field of fields) {
-      const value = form.get(`${prefix}.${index}.${field}`);
-      row[field] = value;
-      if (String(value ?? "").trim()) hasValue = true;
-    }
-    if (hasValue) rows.push(row);
-  }
-  return rows;
-}
-
-function labelize(value: string) {
-  return value.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
-}

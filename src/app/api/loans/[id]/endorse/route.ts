@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { badRequest } from "@/lib/http";
 import { canEndorseCredit, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { routeToCreditCommittee } from "@/lib/scorecard";
@@ -12,9 +13,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id: rawId } = await context.params;
   const id = Number(rawId);
   const loan = await prisma.loanApplication.findUnique({ where: { id }, include: { scorecard: true } });
-  if (!loan || loan.status !== "FOR_ENDORSEMENT") return NextResponse.json({ error: "Loan is not awaiting endorsement." }, { status: 400 });
+  // PROCEED is the strongest scorecard outcome and sets the loan status to match, so it must be
+  // endorsable too — gating on FOR_ENDORSEMENT alone stranded every loan that scored 80 or above.
+  if (!loan || !["FOR_ENDORSEMENT", "PROCEED"].includes(loan.status)) {
+    return NextResponse.json({ error: "Loan is not awaiting endorsement." }, { status: 400 });
+  }
   if (!loan.scorecard || !["FOR_ENDORSEMENT", "PROCEED"].includes(loan.scorecard.result)) return NextResponse.json({ error: "Only a passing CI/BI result can be endorsed." }, { status: 409 });
-  const body = schema.parse(await request.json().catch(() => ({})));
+  const parsed = schema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) return badRequest(parsed.error);
+  const body = parsed.data;
   const now = new Date();
   const code = `END-${now.getFullYear()}-${String(id).padStart(5, "0")}-${String(user.id).padStart(3, "0")}`;
   const committee = await routeToCreditCommittee(id, user.id);

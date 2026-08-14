@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canAccessAllBranches, canAccessBranch, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { pickWritable, pickWritableRows } from "@/lib/model-fields";
 
 const nullableNumberFields = new Set([
   "age",
@@ -39,18 +40,41 @@ const nullableNumberFields = new Set([
   "appraisedValue"
 ]);
 
-function cleanObject(input: Record<string, unknown> = {}) {
+/**
+ * Numeric columns arrive as strings from the form. Grouping separators and stray spaces are
+ * tolerated, but anything that is not a real number is reported rather than coerced: `Number()`
+ * turns "1,234" and "abc" into NaN, which Prisma would either reject with a 500 or persist as a
+ * meaningless value.
+ */
+function parseNumeric(value: unknown): { ok: true; value: number | null } | { ok: false } {
+  if (value === null || value === undefined || value === "") return { ok: true, value: null };
+  const normalized = String(value).replace(/[,\s]/g, "");
+  if (normalized === "") return { ok: true, value: null };
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? { ok: true, value: parsed } : { ok: false };
+}
+
+function cleanObject(input: Record<string, unknown> = {}, invalidKeys: string[] = []) {
   return Object.fromEntries(
     Object.entries(input).map(([key, value]) => {
       if (value === "") return [key, null];
-      if (nullableNumberFields.has(key) && value !== null && value !== undefined) return [key, Number(value)];
+      if (nullableNumberFields.has(key) && value !== null && value !== undefined) {
+        const parsed = parseNumeric(value);
+        if (!parsed.ok) {
+          invalidKeys.push(key);
+          return [key, null];
+        }
+        return [key, parsed.value];
+      }
       return [key, value];
     })
   );
 }
 
-function cleanRows(rows: Record<string, unknown>[] = []) {
-  return rows.map((row) => cleanObject(row)).filter((row) => Object.values(row).some((value) => value !== null && value !== undefined && value !== ""));
+function cleanRows(rows: Record<string, unknown>[] = [], invalidKeys: string[] = []) {
+  return rows
+    .map((row) => cleanObject(row, invalidKeys))
+    .filter((row) => Object.values(row).some((value) => value !== null && value !== undefined && value !== ""));
 }
 
 const PH_MOBILE_PATTERN = /^09\d{9}$/;
@@ -93,10 +117,17 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const existing = await prisma.loanApplication.findUnique({ where: { id } });
   if (!existing || !canAccessBranch(user, existing.branchId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const body = await request.json();
-  const loanData = cleanObject(body.loan);
-  const applicantData = cleanObject(body.applicant);
-  const householdData = cleanObject(body.household);
-  const incomeData = cleanObject(body.income);
+  const invalidNumbers: string[] = [];
+  const droppedFields: string[] = [];
+  const loanData = cleanObject(body.loan, invalidNumbers);
+  const applicantData = cleanObject(pickWritable("ApplicantProfile", body.applicant, droppedFields), invalidNumbers);
+  const householdData = cleanObject(pickWritable("HouseholdBackground", body.household, droppedFields), invalidNumbers);
+  const incomeData = cleanObject(pickWritable("IncomeProfile", body.income, droppedFields), invalidNumbers);
+
+  if (invalidNumbers.length) {
+    const fields = [...new Set(invalidNumbers)].join(", ");
+    return NextResponse.json({ error: `These fields must be valid numbers: ${fields}` }, { status: 400 });
+  }
 
   const dateOfCi = parseDate(loanData.dateOfCi);
   if (!dateOfCi) return NextResponse.json({ error: "Invalid CI date" }, { status: 400 });
@@ -203,32 +234,46 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     });
     await tx.existingLiability.deleteMany({ where: { loanApplicationId: id } });
     await tx.existingLiability.createMany({
-      data: withRowDates(cleanRows(body.liabilities), ["dueDate"]).map((row) => ({ ...row, loanApplicationId: id, creditor: String(row.creditor || "Creditor") })) as any[]
+      data: withRowDates(cleanRows(pickWritableRows("ExistingLiability", body.liabilities, droppedFields), invalidNumbers), ["dueDate"]).map((row) => ({ ...row, loanApplicationId: id, creditor: String(row.creditor || "Creditor") })) as any[]
     });
     await tx.characterReference.deleteMany({ where: { loanApplicationId: id } });
-    await tx.characterReference.createMany({ data: cleanRows(body.references).map((row) => ({ ...row, loanApplicationId: id, referenceName: String(row.referenceName || "Reference") })) as any[] });
+    await tx.characterReference.createMany({ data: cleanRows(pickWritableRows("CharacterReference", body.references, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id, referenceName: String(row.referenceName || "Reference") })) as any[] });
     await tx.asset.deleteMany({ where: { loanApplicationId: id } });
-    await tx.asset.createMany({ data: cleanRows(body.assets).map((row) => ({ ...row, loanApplicationId: id, assetType: String(row.assetType || "Asset") })) as any[] });
+    await tx.asset.createMany({ data: cleanRows(pickWritableRows("Asset", body.assets, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id, assetType: String(row.assetType || "Asset") })) as any[] });
     await tx.collateral.deleteMany({ where: { loanApplicationId: id } });
     await tx.collateral.createMany({
-      data: withRowDates(cleanRows(body.collateral), ["dateLastAppraised", "dateAcquired", "expiryDate"]).map((row) => ({ ...row, loanApplicationId: id })) as any[]
+      data: withRowDates(cleanRows(pickWritableRows("Collateral", body.collateral, droppedFields), invalidNumbers), ["dateLastAppraised", "dateAcquired", "expiryDate"]).map((row) => ({ ...row, loanApplicationId: id })) as any[]
     });
     await tx.attachedProperty.deleteMany({ where: { loanApplicationId: id } });
-    await tx.attachedProperty.createMany({ data: cleanRows(body.attachedProperties).map((row) => ({ ...row, loanApplicationId: id })) as any[] });
+    await tx.attachedProperty.createMany({ data: cleanRows(pickWritableRows("AttachedProperty", body.attachedProperties, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id })) as any[] });
     await tx.businessContact.deleteMany({ where: { loanApplicationId: id } });
     await tx.businessContact.createMany({
-      data: cleanRows(body.businessContacts).map((row) => ({ ...row, loanApplicationId: id, kind: String(row.kind || "SUPPLIER") })) as any[]
+      data: cleanRows(pickWritableRows("BusinessContact", body.businessContacts, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id, kind: String(row.kind || "SUPPLIER") })) as any[]
     });
     await tx.cashFlowEntry.deleteMany({ where: { loanApplicationId: id } });
     await tx.cashFlowEntry.createMany({
-      data: cleanRows(body.cashFlows).map((row) => ({ ...row, loanApplicationId: id, entryType: String(row.entryType || "Income") })) as any[]
+      data: cleanRows(pickWritableRows("CashFlowEntry", body.cashFlows, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id, entryType: String(row.entryType || "Income") })) as any[]
     });
     await tx.cropProduction.deleteMany({ where: { loanApplicationId: id } });
-    await tx.cropProduction.createMany({ data: cleanRows(body.cropProductions).map((row) => ({ ...row, loanApplicationId: id })) as any[] });
+    await tx.cropProduction.createMany({ data: cleanRows(pickWritableRows("CropProduction", body.cropProductions, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id })) as any[] });
     await tx.farmCostItem.deleteMany({ where: { loanApplicationId: id } });
-    await tx.farmCostItem.createMany({ data: cleanRows(body.farmCostItems).map((row) => ({ ...row, loanApplicationId: id })) as any[] });
+    await tx.farmCostItem.createMany({ data: cleanRows(pickWritableRows("FarmCostItem", body.farmCostItems, droppedFields), invalidNumbers).map((row) => ({ ...row, loanApplicationId: id })) as any[] });
   });
 
-  await audit({ userId: user.id, action: "Update loan application", entityType: "LoanApplication", entityId: id, oldValue: existing, newValue: body });
+  // Key names only — never the values, which may be large or sensitive. A populated list means
+  // either a client/server field mismatch worth fixing, or someone probing for writable columns.
+  if (droppedFields.length) {
+    const unique = [...new Set(droppedFields)];
+    console.warn(`[loans:${id}] ignored ${unique.length} unwritable field(s) from user ${user.id}: ${unique.join(", ")}`);
+  }
+
+  await audit({
+    userId: user.id,
+    action: "Update loan application",
+    entityType: "LoanApplication",
+    entityId: id,
+    oldValue: existing,
+    newValue: droppedFields.length ? { ...body, __ignoredFields: [...new Set(droppedFields)] } : body
+  });
   return NextResponse.json({ ok: true });
 }

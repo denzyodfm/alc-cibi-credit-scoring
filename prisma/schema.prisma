@@ -141,6 +141,7 @@ model User {
   committeeReviews           CreditCommitteeReview[]
   branchCommitteeAssignments BranchCommitteeAssignment[]
   endorsedApplications       LoanApplication[]           @relation("LoanEndorser")
+  returnedApplications       LoanApplication[]           @relation("LoanReturner")
   auditLogs                  AuditLog[]
 
   @@index([branchId])
@@ -180,6 +181,10 @@ model LoanApplication {
   endorsedAt           DateTime?               @map("endorsed_at")
   endorsementCode      String?                 @map("endorsement_code") @db.VarChar(40)
   endorsementRemarks   String?                 @map("endorsement_remarks") @db.Text
+  returnedBy           Int?                    @map("returned_by")
+  returnedAt           DateTime?               @map("returned_at")
+  returnedFromRole     String?                 @map("returned_from_role") @db.VarChar(80)
+  returnedRemarks      String?                 @map("returned_remarks") @db.Text
   createdBy            Int                     @map("created_by")
   createdAt            DateTime                @default(now()) @map("created_at")
   updatedAt            DateTime                @updatedAt @map("updated_at")
@@ -187,6 +192,7 @@ model LoanApplication {
   loanOfficer          User                    @relation("LoanOfficer", fields: [loanOfficerId], references: [id])
   creator              User                    @relation("ApplicationCreator", fields: [createdBy], references: [id])
   endorser             User?                   @relation("LoanEndorser", fields: [endorsedBy], references: [id])
+  returner             User?                   @relation("LoanReturner", fields: [returnedBy], references: [id])
   applicantProfile     ApplicantProfile?
   householdBackground  HouseholdBackground?
   incomeProfile        IncomeProfile?

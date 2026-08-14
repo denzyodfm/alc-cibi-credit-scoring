@@ -12,8 +12,9 @@ export default async function CommitteePage() {
   const branchRestricted = user.role === "BOOKKEEPER" || user.role === "BRANCH_TEAM_LEADER";
   const candidates = allowed ? await prisma.loanApplication.findMany({
     where: admin ? { status: { in: ["FOR_CREDIT_COMMITTEE", "APPROVED", "DENIED"] } } : { status: "FOR_CREDIT_COMMITTEE", ...(branchRestricted ? { branchId: user.branchId } : {}), committeeReviews: { some: { reviewerId: user.id, decision: "PENDING" } } },
-    include: { applicantProfile: true, branch: true, loanOfficer: true, scorecard: true, committeeReviews: { include: { reviewer: true, creditCommittee: true }, orderBy: [{ approvalSequence: "asc" }, { createdAt: "asc" }] } },
-    orderBy: { updatedAt: "desc" }
+    include: { applicantProfile: { select: { fullName: true, photoDataUrl: true } }, branch: true, loanOfficer: true, scorecard: true, committeeReviews: { include: { reviewer: true, creditCommittee: true }, orderBy: [{ approvalSequence: "asc" }, { createdAt: "asc" }] } },
+    orderBy: { updatedAt: "desc" },
+    take: 100
   }) : [];
   const tieredCandidates = candidates.map((loan) => {
     const committeeReviews = loan.committeeReviews.filter((review) => review.approvalSequence <= approvalStageLimit(Number(loan.amountApplied)));

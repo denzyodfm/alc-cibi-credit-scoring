@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { badRequest } from "@/lib/http";
 import { z } from "zod";
 import { canAccessBranch, canReviewCredit, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const loan = await prisma.loanApplication.findUnique({ where: { id } });
   if (!loan || !canAccessBranch(user, loan.branchId)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!["ENDORSED", "FOR_CREDIT_COMMITTEE", "APPROVED", "DENIED"].includes(loan.status)) return NextResponse.json({ error: "Post-endorsement processing is locked." }, { status: 400 });
-  const body = schema.parse(await request.json());
+  const __parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!__parsed.success) return badRequest(__parsed.error);
+  const body = __parsed.data;
 
   if (body.computation) {
     const data: Record<string, unknown> = { ...body.computation };

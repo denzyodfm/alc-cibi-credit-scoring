@@ -1,5 +1,6 @@
 import { NaTreatment, Prisma, ScorecardResult } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { deriveScores, type DerivedScores, type MetricSource } from "@/lib/credit-metrics";
 
 export type ScorecardInputItem = {
   code: string;
@@ -36,24 +37,26 @@ function fixedScoreFor(treatment: NaTreatment) {
   return null;
 }
 
-export function dtiScore(grossIncome: number, monthlyObligations: number, proposedAmortization: number) {
-  if (grossIncome <= 0) return null;
-  const dti = ((monthlyObligations + proposedAmortization) / grossIncome) * 100;
-  if (dti <= 50) return 4;
-  if (dti <= 60) return 3;
-  if (dti <= 70) return 2;
-  if (dti <= 80) return 1;
-  return 0;
-}
-
-export function ltvScore(loanAmount: number, appraisedValue: number) {
-  if (loanAmount <= 0 || appraisedValue <= 0) return null;
-  const ltv = (loanAmount / appraisedValue) * 100;
-  if (ltv <= 60) return 4;
-  if (ltv <= 70) return 3;
-  if (ltv <= 80) return 2;
-  if (ltv <= 90) return 1;
-  return 0;
+/**
+ * Loads the data the derived ratios need and computes them. Kept beside computeScorecard so a
+ * save always recomputes DTI and LTV from what is actually stored, rather than trusting whatever
+ * score the browser posted — 2A is an auto-DQ criterion, so it must not be client-controlled.
+ */
+export async function deriveScoresForLoan(loanApplicationId: number): Promise<DerivedScores> {
+  const loan = await prisma.loanApplication.findUnique({
+    where: { id: loanApplicationId },
+    select: {
+      amountApplied: true,
+      proposedAmortization: true,
+      incomeProfile: true,
+      cashFlows: { select: { entryType: true, income: true } },
+      liabilities: { select: { monthlyObligation: true } },
+      collateral: { select: { appraisedValue: true } },
+      attachedProperties: { select: { appraisedValue: true } }
+    }
+  });
+  if (!loan) return {};
+  return deriveScores(loan as MetricSource);
 }
 
 export async function getScorecardRules() {
@@ -64,7 +67,7 @@ export async function getScorecardRules() {
   return { criteria, settings };
 }
 
-export async function computeScorecard(inputItems: ScorecardInputItem[]): Promise<ScoreComputation> {
+export async function computeScorecard(inputItems: ScorecardInputItem[], derived: DerivedScores = {}): Promise<ScoreComputation> {
   const { criteria, settings } = await getScorecardRules();
   const weightByCategory = new Map(settings.map((item) => [item.category, Number(item.weightPercent)]));
   const inputByCode = new Map(inputItems.map((item) => [item.code, item]));
@@ -78,7 +81,28 @@ export async function computeScorecard(inputItems: ScorecardInputItem[]): Promis
     let weightedIncluded = true;
     let isNa = false;
 
-    if (wantsNa && criterion.naTreatment !== "NEVER_NA") {
+    // Formula-driven criteria ignore whatever the client posted. A derived score that cannot be
+    // computed yet falls back to the submitted value so a half-filled form still saves.
+    const derivedMetric = derived[criterion.code];
+    if (derivedMetric) {
+      if (derivedMetric.excluded) {
+        itemRows.push({
+          category: criterion.category,
+          subCriterionCode: criterion.code,
+          subCriterionName: criterion.name,
+          score: 0,
+          isNa: true,
+          naTreatment: criterion.naTreatment,
+          weightedIncluded: false,
+          autoDqIfZero: criterion.autoDqIfZero,
+          remarks: submitted?.remarks
+        });
+        continue;
+      }
+      if (derivedMetric.score !== null) score = derivedMetric.score;
+    }
+
+    if (wantsNa && criterion.naTreatment !== "NEVER_NA" && !derivedMetric) {
       isNa = true;
       const fixed = fixedScoreFor(criterion.naTreatment);
       if (fixed === null || criterion.naTreatment === "EXCLUDE_RENORMALIZE") {
@@ -138,8 +162,8 @@ export async function routeToCreditCommittee(loanApplicationId: number, actorId:
     include: { branch: true }
   });
   const amount = Number(loan.amountApplied);
-  const { APPROVAL_TIERS, committeeRoleLabel } = await import("@/lib/committee-config");
-  const tier = APPROVAL_TIERS.find((item) => amount >= item.min && (item.max === null || amount <= item.max));
+  const { committeeRoleLabel, tierForAmount } = await import("@/lib/committee-config");
+  const tier = tierForAmount(amount);
   if (!tier) return null;
   const assignments = await prisma.branchCommitteeAssignment.findMany({ where: { branchId: loan.branchId, roleKey: { in: [...tier.roles] } } });
   const byRole = new Map(assignments.map((item) => [item.roleKey, item.userId]));
